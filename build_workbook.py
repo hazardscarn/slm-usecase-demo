@@ -753,6 +753,109 @@ for t in ["Cost only: closed frontier models work zero-shot, SLMs need SFT + an 
     wsC.cell(row=r, column=1, value="• " + t).font = f_note; r += 1
 
 # =====================================================================
+# 10b. FOCUS COMPARE  (Nemotron 3.5 Lightning + Gemma 4 12B vs Flash-tier-and-above closed models)
+# =====================================================================
+wsX = sheet("Focus_Compare", "Focus: Nemotron 3.5 Lightning & Gemma 4 12B (SLM) vs Flash-tier-and-above closed models",
+            "Closed comparators = Gemini 3.5 Flash and up, Claude Sonnet/Opus/Fable, OpenAI gpt-5.4+/gpt-6 (luna, terra, sol, astra) - NOT the cheapest lite/nano/Haiku tier. SLMs on the cheapest GPU they fit (no H100); STRESS case halves throughput and lengthens cold start.", "00B050")
+wsX["A4"] = "Stress-test inputs (edit)"; wsX["A4"].font = f_bold
+put(wsX, 5, 1, "Throughput factor in stress case (0.5 = SLM runs at half the assumed speed)"); put(wsX, 5, 2, 0.5, fmt='0.00', font=f_in, fill=fill_key)
+put(wsX, 6, 1, "Cold start in stress case (minutes per run)"); put(wsX, 6, 2, 15, fmt='0.0', font=f_in, fill=fill_key)
+put(wsX, 7, 1, "Closed prices follow the 'price basis' switch on Assumptions (Current/Post-promo); two Gemini rows below always show the post-promo list price. Thinking tokens per call: Assumptions.", font=f_note, bd=False)
+XH = 9; xv = 4
+RC = [f"Monthly Std @ ref", "Monthly Batch @ ref", "Std: x vs Nemotron Lightning (base)", "Std: x vs Nemotron Lightning (stress)", "Std: x vs Gemma 4 12B (base)", "Std: x vs Gemma 4 12B (stress)", "Batch: x vs Nemotron Lightning (base)", "Batch: x vs Gemma 4 12B (base)"]
+hdr(wsX, XH, ["Option", "Type", "Marginal $ per 1K calls (Standard)"] + [None] * NV + RC, height=70)
+for k in range(NV):
+    c = wsX.cell(row=XH, column=xv + k)
+    c.value = f"={A['vol_step']}" if k == 0 else f"={L(xv+k-1)}{XH}+{A['vol_step']}"
+    c.number_format = '#,##0" calls/day"'; c.font = f_hdr
+widths(wsX, [62, 22, 13] + [10] * NV + [14, 14] + [13] * 6)
+cm = xv + NV          # monthly std col
+cb = cm + 1           # monthly batch col
+ti, to = A["tot_in"], A["out_closed"]
+rX = XH + 1
+# --- SLM rows first (fixed positions)
+def slm_row(label, idx, mode):
+    global rX
+    rb = dB0 + idx
+    put(wsX, rX, 1, label, font=f_bold, fill=fill_sub); put(wsX, rX, 2, "SLM (self-hosted)" if mode == "base" else "SLM (stress test)", fill=fill_sub)
+    if mode == "base": var = f"SLM_Daily_Cost!$E${rb}"; fix = f"SLM_Daily_Cost!$F${rb}"
+    else: var = f"SLM_Daily_Cost!$E${rb}/$B$5"; fix = f"{A['runs_day']}*$B$6/60*SLM_Daily_Cost!$C${rb}"
+    put(wsX, rX, 3, f'=IFERROR({var}*1000,"n/a")', fmt=USD)
+    for k in range(NV): put(wsX, rX, xv + k, f'=IFERROR({L(xv+k)}${XH}*({var})+{fix},"n/a")', fmt=USD)
+    put(wsX, rX, cm, f'=IFERROR(({A["ref_vol"]}*({var})+{fix})*{A["days"]},"n/a")', fmt=USD0, font=f_bold)
+    put(wsX, rX, cb, f"=${L(cm)}{rX}", fmt=USD0)
+    rX += 1; return rX - 1
+S_NB = slm_row("Nemotron 3.5 Lightning 30B-A3B - base (cheapest feasible GPU)", 7, "base")
+S_NS = slm_row("Nemotron 3.5 Lightning 30B-A3B - STRESS (half speed, longer cold start)", 7, "stress")
+S_GB = slm_row("Gemma 4 12B - base (cheapest feasible GPU)", 8, "base")
+S_GS = slm_row("Gemma 4 12B - STRESS (half speed, longer cold start)", 8, "stress")
+c_first = rX
+COMP = [("Google", ["Gemini 3.5 Flash", "Gemini 3.6 Flash", "Gemini 3.7 Flash", "Gemini 3.8 Flash", "Gemini 3.1 Pro Preview", "Gemini 4 Argon"]),
+        ("Anthropic", ["Claude Sonnet 4.6", "Claude Sonnet 5", "Claude Sonnet 5.5", "Claude Opus 5", "Claude Opus 5.5", "Claude Fable 5.1"]),
+        ("OpenAI", ["gpt-5.4", "gpt-5.5", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-6-luna", "gpt-6-sol", "gpt-6-astra", "gpt-6.1-terra", "gpt-6.1-sol"])]
+def ratios(r):
+    for j, (num, den) in enumerate([(cm, S_NB), (cm, S_NS), (cm, S_GB), (cm, S_GS), (cb, S_NB), (cb, S_GB)]):
+        put(wsX, r, cb + 1 + j, f'=IFERROR(IF(ISNUMBER({L(num)}{r}),{L(num)}{r}/{L(cm)}${den},"n/a"),"n/a")', fmt='0.0"x"', fill=fill_key if j in (0, 2) else None)
+def closed_row(name, prov, label=None, cols=None):
+    global rX
+    pr = prow[name]
+    P = lambda c: f"Closed_Pricing!${c}${pr}"
+    ci, co, bi, bo = cols or ("V", "W", "Y", "Z")
+    put(wsX, rX, 1, label or name, font=f_bold); put(wsX, rX, 2, prov)
+    put(wsX, rX, 3, f"=({ti}*{P(ci)}+{to}*{P(co)})/1000000*1000", fmt=USD)
+    for k in range(NV): put(wsX, rX, xv + k, f"=$C{rX}*{L(xv+k)}${XH}/1000", fmt=USD)
+    put(wsX, rX, cm, f"=$C{rX}*{A['ref_vol']}/1000*{A['days']}", fmt=USD0, font=f_bold)
+    put(wsX, rX, cb, f'=IF({P("P")}="No","n/a",({ti}*{P(bi)}+{to}*{P(bo)})/1000000*{A["ref_vol"]}*{A["days"]})', fmt=USD0)
+    ratios(rX); rX += 1; return rX - 1
+XR = {}
+for prov, names in COMP:
+    for nme in names: XR[nme] = closed_row(nme, prov)
+XR["g38_post"] = closed_row("Gemini 3.8 Flash", "Google", "Gemini 3.6/3.7/3.8 Flash - POST-PROMO list price (from 2027-01-01)", ("J", "K", "M", "N"))
+XR["argon_post"] = closed_row("Gemini 4 Argon", "Google", "Gemini 4 Argon - POST-PROMO list price (from 2026-12-01)", ("J", "K", "M", "N"))
+c_last = rX - 1
+wsX.conditional_formatting.add(f"{L(xv)}{XH+1}:{L(xv+NV-1)}{c_last}", ColorScaleRule(start_type="percentile", start_value=5, start_color="C6EFCE", mid_type="percentile", mid_value=50, mid_color="FFFFFF", end_type="percentile", end_value=95, end_color="F8CBAD"))
+# summary of range
+rX += 1
+wsX.cell(row=rX, column=1, value="Range across the closed comparators above (Standard API, base-case SLM)").font = f_bold; rX += 1
+for lab, fn in (("Cheapest comparator: SLM is this many x cheaper", "MIN"), ("Median comparator", "MEDIAN"), ("Most expensive comparator", "MAX")):
+    put(wsX, rX, 1, lab)
+    put(wsX, rX, 2, "vs Nemotron Lightning"); put(wsX, rX, 3, f"={fn}({L(cb+1)}{c_first}:{L(cb+1)}{c_last})", fmt='0.0"x"', font=f_bold)
+    put(wsX, rX, 4, "vs Gemma 4 12B"); put(wsX, rX, 5, f"={fn}({L(cb+3)}{c_first}:{L(cb+3)}{c_last})", fmt='0.0"x"', font=f_bold)
+    put(wsX, rX, 6, "vs Nemotron (stress)"); put(wsX, rX, 7, f"={fn}({L(cb+2)}{c_first}:{L(cb+2)}{c_last})", fmt='0.0"x"', font=f_bold)
+    put(wsX, rX, 8, "vs Gemma (stress)"); put(wsX, rX, 9, f"={fn}({L(cb+4)}{c_first}:{L(cb+4)}{c_last})", fmt='0.0"x"', font=f_bold)
+    rX += 1
+rX += 1
+wsX.cell(row=rX, column=1, value="One-time SFT cost and months to repay vs Gemini 3.8 Flash Standard at ref volume (base-case SLM)").font = f_bold; rX += 1
+hdr(wsX, rX, ["Model", "H100 GPUs for SFT", "SFT $ (12h)", "SFT $ (24h)", "Monthly saving vs Gemini 3.8 Flash Std", "Break-even months (24h SFT)"], height=56)
+for j, (nm, idx, srow) in enumerate((("Nemotron 3.5 Lightning 30B-A3B", 7, S_NB), ("Gemma 4 12B", 8, S_GB))):
+    r_ = rX + 1 + j
+    put(wsX, r_, 1, nm, font=f_bold); put(wsX, r_, 2, f"=SFT_Cost!F{T0+idx}", fmt='0', font=f_link)
+    put(wsX, r_, 3, f"=SFT_Cost!G{T0+idx}", fmt=USD0, font=f_link); put(wsX, r_, 4, f"=SFT_Cost!H{T0+idx}", fmt=USD0, font=f_link)
+    put(wsX, r_, 5, f"={L(cm)}{XR['Gemini 3.8 Flash']}-{L(cm)}{srow}", fmt=USD0)
+    put(wsX, r_, 6, f'=IF(E{r_}>0,D{r_}/E{r_},"never")', fmt='0.00')
+rX += 4
+wsX.cell(row=rX, column=1, value="MARKET CROSS-CHECK - what managed (per-token) APIs charge for comparable open models, same call profile").font = f_bold; rX += 1
+hdr(wsX, rX, ["Managed open-model API", "Source basis", "Input $/1M", "Output $/1M", "$ per 1K calls", "Monthly @ ref volume"], height=40)
+MK = [("Databricks pay-per-token: Gemma 3 12B (2.143 / 7.143 DBU per 1M)", "Databricks FM serving page x $/DBU (unverified $0.07)", f"=2.143*{A['dbu']}", f"=7.143*{A['dbu']}"),
+      ("Databricks pay-per-token: GPT-OSS-20B (1.000 / 4.286 DBU)", "same", f"=1.0*{A['dbu']}", f"=4.286*{A['dbu']}"),
+      ("Databricks pay-per-token: Llama 3.1 8B (2.143 / 6.429 DBU)", "same", f"=2.143*{A['dbu']}", f"=6.429*{A['dbu']}"),
+      ("Vertex AI MaaS: Gemma 4 26B (official)", "cloud.google.com/vertex-ai/generative-ai/pricing", 0.15, 0.60)]
+mk0 = rX + 1
+for j, (nm, src, pi, po) in enumerate(MK):
+    r_ = mk0 + j
+    put(wsX, r_, 1, nm); put(wsX, r_, 2, src, font=f_note, al=wrap)
+    put(wsX, r_, 3, pi, fmt=USD, font=f_in if not isinstance(pi, str) else f_norm); put(wsX, r_, 4, po, fmt=USD, font=f_in if not isinstance(po, str) else f_norm)
+    put(wsX, r_, 5, f"=({A['tot_in']}*C{r_}+{A['out_slm']}*D{r_})/1000000*1000", fmt=USD)
+    put(wsX, r_, 6, f"=E{r_}/1000*{A['ref_vol']}*{A['days']}", fmt=USD0)
+rX = mk0 + len(MK) + 1
+for t in ["Cross-check logic: managed providers sell 8B-26B open models at roughly $0.35-0.75 per 1K of these calls INCLUDING margin and idle capacity; self-hosted Nemotron/Gemma on an on-demand A100/L4 lands in the same range. Gemini 3.5+ Flash, Sonnet, Opus and gpt-6 models cost several dollars per 1K calls, so the gap is structural (per-token prices of frontier-tier closed models vs commodity open-model hosting), not an artefact of optimistic SLM speed.",
+          "Earlier 'about the same' result was against Gemini 2.5 Flash-Lite / gpt-5-nano - the cheapest closed tier. This sheet uses Flash-tier-and-above comparators. gpt-6-luna ($0.10/$0.50) and Claude Haiku 5.5 are the closed models that stay close to SLM cost.",
+          "STRESS case: SLM throughput x the factor above and a longer cold start, on the same cheap GPU. If the SLM is still several times cheaper, the conclusion does not hinge on the planning tok/s estimates. Claude Opus 4.5-4.8 share Opus 5 pricing ($5/$25); Sonnet 4.5 equals Sonnet 4.6.",
+          "Quality caveat: closed frontier models are zero-shot capable; the SLM must pass an in-house eval after SFT. Cost advantage only matters if accuracy is acceptable."]:
+    wsX.cell(row=rX, column=1, value="• " + t).font = f_note; rX += 1
+wsX.freeze_panes = wsX.cell(row=XH + 1, column=2)
+
+# =====================================================================
 # 11. DEPLOYMENT OPTIONS
 # =====================================================================
 wsO = sheet("Deployment_Options", "GCP vs Databricks - Options to Host & Fine-tune the SLMs On-Demand",
@@ -847,6 +950,7 @@ rows0 = [
  ("  GPU_Pricing / _Raw", "GPU catalog used in the calculations (GCP + Databricks) and the 235-record research dump with sources."),
  ("  Deployment_Options", "GCP vs Databricks options for SFT and serving, pros/cons, prices."),
  ("  Combined_Compare", "START HERE: one table + chart comparing every closed option (Standard, Batch, BigQuery) with every SLM, daily cost at 1K-15K calls, monthly/annual, one-time SFT, Year-1 total and break-even."),
+ ("  Focus_Compare", "Nemotron 3.5 Lightning + Gemma 4 12B vs Flash-tier-and-above closed models (Gemini 3.5+, Claude Sonnet/Opus, gpt-6 luna/sol/astra), with stress test and managed-API cross-check."),
  ("  SLM_Serving_Fit", "How long a batch run takes per model (prefill + batched decode throughput), which GPU it fits on (incl. L4 for small models) and cost per run at the reference volume."),
  ("  SLM_Daily_Cost", "Daily cost 1K..15K calls: Block A same-machine (1xH100), Block B cheapest feasible GPU."),
  ("  SFT_Cost", "One-time fine-tuning cost per model = GPUs x 12h / 24h x H100 $/h (with token-throughput cross-check); Vertex managed-SFT reference."),
@@ -863,7 +967,7 @@ for i, (a, b) in enumerate(rows0):
 wb.move_sheet("README", offset=-(len(wb.sheetnames) - 1))
 order = ["README", "Assumptions", "Closed_Pricing", "Closed_Std", "Closed_Batch", "Closed_BigQuery", "SLM_Models", "SLM_Benchmarks", "GPU_Pricing", "Deployment_Options",
          "SLM_Serving_Fit", "SLM_Daily_Cost", "SFT_Cost", "GPU_Pricing_Raw", "Sources"]
-order.insert(1, "Combined_Compare")
+order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare")
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
     for rw in ws.iter_rows():
