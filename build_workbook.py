@@ -1114,6 +1114,68 @@ evidence_sheet("Acc_Evidence_FineTune", "Evidence: Accuracy gain from SFT / dist
     [30, 24, 30, 22, 14, 18, 16, 14, 22, 7, 55, 70], "FF0000")
 
 # =====================================================================
+# 10d. ACCURACY - ALL SLM CANDIDATES
+# =====================================================================
+wsY = sheet("Accuracy_All_Models", "Expected Accuracy for ALL 17 Candidate SLMs - zero-shot vs after SFT / distillation from Gemini 3.6 Flash (planning estimates)",
+            "Same method as Accuracy_Expectations, per model. Per-model 'position in gap band' is ANALYST JUDGEMENT from public proxies (IFBench, Vectara hallucination, size/class, release) - NOT measured on extraction. Edit blue cells; replace with your own eval results.", "FF0000")
+AE = lambda k: "Accuracy_Expectations!" + EI[k]
+put(wsY, 4, 1, "No benchmark of these models on call-transcript extraction exists. Use this sheet to RANK candidates and decide whom to evaluate first; the absolute numbers are scenario estimates.", font=Font(name=FONT, size=10, bold=True, color="C00000"), bd=False)
+wsY["A6"] = "Inputs shared with Accuracy_Expectations (teacher accuracy, gap bands) are edited THERE. Local inputs:"; wsY["A6"].font = f_bold
+put(wsY, 7, 1, "Uncertainty around each zero-shot estimate (+/- pts)"); put(wsY, 7, 2, 5, fmt='0.0', font=f_in, fill=fill_key)
+hdr(wsY, 9, ["Size class", "Extraction: recovery LOW", "Extraction: recovery HIGH", "Summarization: recovery LOW", "Summarization: recovery HIGH", "Basis"], height=44)
+CLS = [("Small (<=5B)", 0.85, 0.97, 0.85, 0.97, "ASSUMPTION - published SFT results are mostly 7-8B; <=5B students have a lower ceiling on messy multi-speaker transcripts (small encoders like GLiNER do well on plain NER but not on free-form JSON fields)."),
+       ("Mid (8-14B)", 0.90, 1.00, 0.90, 1.00, "Published range ~90-105% of teacher (LoRA Land, clinical extraction, UniNER, LingVarBench 0.61->0.87)."),
+       ("Large (20-35B)", 0.92, 1.00, 0.92, 1.00, "ASSUMPTION - larger students expected at the top of the band; MoE with ~3B active treated as Large for capacity but could behave closer to Mid.")]
+for i, c in enumerate(CLS):
+    r = 10 + i
+    put(wsY, r, 1, c[0], font=f_bold)
+    for j in range(4): put(wsY, r, 2 + j, c[1 + j], fmt=PCT, font=f_in)
+    put(wsY, r, 6, c[5], al=wrap, font=f_note); wsY.row_dimensions[r].height = 40
+CLR = "$A$10:$A$12"
+widths(wsY, [34, 15, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 13, 12, 60, 14])
+YH = 15
+hdr(wsY, YH, ["Model", "Size class (edit)", "Position in extraction gap band (0=best, 1=worst)", "Position in summarization gap band (0=best, 1=worst)",
+              "EXTRACTION zero-shot LOW", "zero-shot HIGH", "zero-shot MID", "EXTRACTION after SFT LOW", "after SFT HIGH", "after SFT MID", "Lift from SFT (pts, mid)",
+              "SUMMARY faithfulness zero-shot MID", "SUMMARY after SFT MID", "Lift (pts)", "Monthly $ @ ref vol (cheapest GPU)", "One-time SFT $ (selected hours)", "Origin", "Public proxy evidence (from SLM_Models)", "Rank by post-SFT extraction MID"], height=84)
+PRIOR = [ # class, p_ext, p_sum, rationale in order of slm list
+ ("Large (20-35B)", 0.35, 0.30), ("Large (20-35B)", 0.30, 0.40), ("Large (20-35B)", 0.30, 0.10), ("Large (20-35B)", 0.40, 0.40),
+ ("Large (20-35B)", 0.40, 0.00), ("Large (20-35B)", 0.50, 0.40), ("Large (20-35B)", 0.40, 0.50), ("Large (20-35B)", 0.50, 0.50),
+ ("Mid (8-14B)", 0.50, 0.20), ("Mid (8-14B)", 0.60, 0.50), ("Mid (8-14B)", 0.65, 0.55), ("Small (<=5B)", 0.85, 0.70),
+ ("Small (<=5B)", 0.80, 0.60), ("Mid (8-14B)", 0.55, 0.10), ("Large (20-35B)", 0.55, 0.55), ("Large (20-35B)", 0.50, 0.50), ("Large (20-35B)", 0.50, 0.40)]
+Y0 = YH + 1
+for i in range(SLM_N):
+    r = Y0 + i; mr = M0 + 1 + i
+    put(wsY, r, 1, f"=SLM_Models!C{mr}", font=f_link, al=wrap)
+    put(wsY, r, 2, PRIOR[i][0], font=f_in); put(wsY, r, 3, PRIOR[i][1], fmt='0.00', font=f_in, fill=fill_key); put(wsY, r, 4, PRIOR[i][2], fmt='0.00', font=f_in, fill=fill_key)
+    gapm = f"({AE('gap_lo')}+C{r}*({AE('gap_hi')}-{AE('gap_lo')}))/100"
+    put(wsY, r, 7, f"={AE('t_ext')}-{gapm}", fmt=PCT, fill=fill_sub)
+    put(wsY, r, 5, f"=MAX(0,G{r}-$B$7/100)", fmt=PCT); put(wsY, r, 6, f"=MIN({AE('t_ext')},G{r}+$B$7/100)", fmt=PCT)
+    rl = f"INDEX($B$10:$B$12,MATCH($B{r},{CLR},0))"; rh = f"INDEX($C$10:$C$12,MATCH($B{r},{CLR},0))"
+    put(wsY, r, 8, f"={AE('t_ext')}*{rl}", fmt=PCT); put(wsY, r, 9, f"=MIN(1,{AE('t_ext')}*{rh})", fmt=PCT)
+    put(wsY, r, 10, f"=MAX(G{r},{AE('t_ext')}*({rl}+({rh}-{rl})*(1-C{r})))", fmt=PCT, fill=fill_sub, font=f_bold)
+    put(wsY, r, 11, f"=(J{r}-G{r})*100", fmt='0.0')
+    sgap = f"({AE('sgap_lo')}+D{r}*({AE('sgap_hi')}-{AE('sgap_lo')}))/100"
+    put(wsY, r, 12, f"={AE('t_sum')}-{sgap}", fmt=PCT)
+    sl = f"INDEX($D$10:$D$12,MATCH($B{r},{CLR},0))"; sh = f"INDEX($E$10:$E$12,MATCH($B{r},{CLR},0))"
+    put(wsY, r, 13, f"=MAX(L{r},{AE('t_sum')}*({sl}+({sh}-{sl})*(1-D{r})))", fmt=PCT, font=f_bold)
+    put(wsY, r, 14, f"=(M{r}-L{r})*100", fmt='0.0')
+    put(wsY, r, 15, f"=SLM_Daily_Cost!{L(nc+NV+1)}{dB0+i}", fmt=USD0, font=f_link); put(wsY, r, 16, f"=SFT_Cost!I{T0+i}", fmt=USD0, font=f_link)
+    put(wsY, r, 17, f"=SLM_Models!F{mr}", font=f_link, al=wrap); put(wsY, r, 18, f"=SLM_Models!W{mr}", font=f_link, al=wrap)
+    put(wsY, r, 19, f"=RANK(J{r},$J${Y0}:$J${Y0+SLM_N-1},0)", fmt='0')
+    wsY.row_dimensions[r].height = 62
+Y_last = Y0 + SLM_N - 1
+wsY.freeze_panes = wsY.cell(row=Y0, column=2)
+wsY.auto_filter.ref = f"A{YH}:S{Y_last}"
+wsY.conditional_formatting.add(f"J{Y0}:J{Y_last}", ColorScaleRule(start_type="min", start_color="F8CBAD", mid_type="percentile", mid_value=50, mid_color="FFFFFF", end_type="max", end_color="C6EFCE"))
+r = Y_last + 2
+for t in ["How to read: zero-shot MID = teacher accuracy minus a gap that depends on where the model sits in the evidence band (position 0 = small gap, 1 = large gap). After-SFT MID = teacher accuracy x recovery, where recovery sits between the size-class LOW and HIGH bounds depending on base-model strength (strong base = near HIGH; ASSUMPTION - not measured), never below zero-shot. Ranges are scenario estimates, not predictions.",
+          "Position judgements (editable) use: IFBench/IFEval (format following), Vectara hallucination for summarization where available (Gemma 4 26B-A4B 5.2% and Phi-4 3.7% best; Nemotron-3-Nano 9.6% weaker), model size/class and release recency. Models with no public proxy (Olmo 3, Mistral Small 3.2, Qwen3.6-35B-A3B) sit mid-band.",
+          "Chinese-origin models (Qwen) may need a US-corporate security/provenance review; Phi-4 has only a 16K context (fine for ~3K-token calls). Qwen3.6-35B-A3B substitutes the non-existent 'Qwen 2.5-25B-A3B'.",
+          "Decision use: shortlist 3-4 models spanning classes (e.g. one Large dense, one MoE, one Mid, one Small) for the in-house eval, since differences between neighbours here are inside the uncertainty."]:
+    wsY.cell(row=r, column=1, value="• " + t).font = f_note; r += 1
+wsE.cell(row=wsE.max_row + 2, column=1, value="Per-model estimates for ALL 17 candidates: see sheet 'Accuracy_All_Models'.").font = f_bold
+
+# =====================================================================
 # 11. DEPLOYMENT OPTIONS
 # =====================================================================
 wsO = sheet("Deployment_Options", "GCP vs Databricks - Options to Host & Fine-tune the SLMs On-Demand",
@@ -1210,6 +1272,7 @@ rows0 = [
  ("  Combined_Compare", "START HERE: one table + chart comparing every closed option (Standard, Batch, BigQuery) with every SLM, daily cost at 1K-15K calls, monthly/annual, one-time SFT, Year-1 total and break-even."),
  ("  Focus_Compare", "Nemotron 3.5 Lightning + Gemma 4 12B vs Flash-tier-and-above closed models (Gemini 3.5+, Claude Sonnet/Opus, gpt-6 luna/sol/astra), with stress test and managed-API cross-check."),
  ("  Accuracy_Expectations", "Expected accuracy ranges: open SLM zero-shot vs closed flash-tier vs after SFT/distillation from Gemini 3.6 Flash (extraction + summarization), label cost, recipe, risks. Evidence on Acc_Evidence_* sheets."),
+ ("  Accuracy_All_Models", "Per-model expected accuracy for all 17 SLMs: zero-shot vs after SFT/distillation (extraction + summarization), with monthly cost and SFT cost alongside."),
  ("  SLM_GPU_Matrix", "Every model on every GPU (L4, A100, RTX PRO 6000, H100): precision needed, tok/s, run minutes, cost per 1K calls, per day and per month; cheapest flagged."),
  ("  H100_vs_A100", "What H100 adds over A100 (FP8, bandwidth, compute), measured ratios, cost per token / per SFT job by hosting option, and when each is the right choice."),
  ("  SLM_Serving_Fit", "How long a batch run takes per model (prefill + batched decode throughput), which GPU it fits on (incl. L4 for small models) and cost per run at the reference volume."),
@@ -1228,7 +1291,7 @@ for i, (a, b) in enumerate(rows0):
 wb.move_sheet("README", offset=-(len(wb.sheetnames) - 1))
 order = ["README", "Assumptions", "Closed_Pricing", "Closed_Std", "Closed_Batch", "Closed_BigQuery", "SLM_Models", "SLM_Benchmarks", "GPU_Pricing", "Deployment_Options",
          "SLM_Serving_Fit", "SLM_GPU_Matrix", "H100_vs_A100", "SLM_Daily_Cost", "SFT_Cost", "Acc_Evidence_ZeroShot", "Acc_Evidence_FineTune", "GPU_Pricing_Raw", "Sources"]
-order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare"); order.insert(3, "Accuracy_Expectations")
+order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare"); order.insert(3, "Accuracy_Expectations"); order.insert(4, "Accuracy_All_Models")
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
     for rw in ws.iter_rows():
