@@ -1197,6 +1197,161 @@ for t in ["How to read: zero-shot MID = teacher accuracy minus a gap that depend
 wsE.cell(row=wsE.max_row + 2, column=1, value="Per-model estimates for ALL 17 candidates: see sheet 'Accuracy_All_Models'.").font = f_bold
 
 # =====================================================================
+# 10e. INFERENCE ENGINES (how to run the models on GPU)
+# =====================================================================
+IE = load("inference_engines"); IM = load("inference_engines_support_matrix"); IB = load("inference_engines_benchmarks")
+EJ = {e["engine"]: e for e in IE["engines"]}
+def ej(name, key, n=700):
+    v = EJ.get(name, {}).get(key, "")
+    v = v if isinstance(v, str) else json.dumps(v)
+    return v if len(v) <= n else v[:n - 3] + "..."
+def ejsrc(name):
+    v = EJ.get(name, {}).get("source_urls", [])
+    return " ; ".join(v) if isinstance(v, list) else str(v)
+ENG = [  # sheet label, json engine key, batch rank, realtime rank, perks, cons, verdict
+ ("vLLM", "vLLM", 1, 1,
+  "Widest day-0 model coverage (Gemma 4, NemotronH/Nemotron 3.5, Granite 4.2, gpt-oss, Qwen3-Next) and the engine every model card recommends. Continuous batching + PagedAttention; offline `LLM` class and `vllm run-batch` for nightly jobs; per-request JSON-schema structured outputs (xgrammar / llguidance); multi-LoRA; automatic prefix caching; runs on L4, A100, H100 and RTX PRO 6000. Releases every ~2 weeks; Apache-2.0; 96.6K GitHub stars.",
+  "Fast-moving (pin the version, e.g. v0.33.x). RTX PRO 6000 (SM120) NVFP4 had bugs Feb-Apr 2026 - retest. Hybrid Mamba/DeltaNet prefix caching needs special flags. Constrained decoding cost at high batch was higher in older tests (re-test on v0.33). Needs GPU-memory tuning; model-load time adds to cold start.",
+  "DEFAULT CHOICE for this use case."),
+ ("SGLang", "SGLang", 2, 2,
+  "Same throughput class as vLLM (H100, Qwen3.8-27B, 50 concurrent: SGLang 1,725 vs vLLM 1,610 tok/s - within noise). RadixAttention prefix reuse is ideal when a long shared instruction/schema prefix repeats on every call. Day-0 for Gemma 4 and Qwen3.8; low constrained-decoding overhead; Apache-2.0.",
+  "Pre-1.0 churn; docs page lags the repo; RTX PRO 6000 (SM120) unverified; LoRA for quantized MoE only added in 0.5.23; Granite 4.2 needs >=0.5.18; smaller community (38.6K stars).",
+  "Benchmark as the challenger on YOUR transcripts; switch only if it is clearly faster."),
+ ("TensorRT-LLM", "NVIDIA TensorRT-LLM", 3, 3,
+  "Best peak per-GPU performance after tuning on H100/Blackwell in some benchmarks; NVIDIA-supported (NIM adds commercial support); FP8/FP4 optimised kernels.",
+  "Lags on new architectures: Granite not listed, Nemotron 3.5 needs the v1.4 release candidate, failed to load Qwen3.8-27B in a Sep 2026 test (v1.2.1). Long engine compile per model/GPU, rc-heavy releases, NVIDIA-only, little benefit for a modest nightly batch.",
+  "Only for a frozen model on H100/Blackwell once everything else works."),
+ ("llama.cpp (llama-server)", "llama.cpp (llama-server)", 4, 4,
+  "Runs almost anywhere (CPU/GPU), tiny single binary, GGUF 4-bit quants fit small models on an L4, best single-user latency, MIT, Gemma 4 day-0 and NemotronH GGUF support, 133.8K stars.",
+  "Collapses under concurrency: 97 tok/s at 50 concurrent vs 1,610 for vLLM on the same H100; ~44x slower than vLLM at 64 users (Red Hat, H200). Needs GGUF conversion of your fine-tuned model; GBNF grammar constrained decoding is slower; hybrid-model performance lags.",
+  "OK for <=1K calls/day on a small L4 box or for local testing - not for 15K/day."),
+ ("Ollama", "Ollama", 6, 5,
+  "Easiest install and model pull; library already has Gemma 4 (12b/26b/31b/E4B), Nemotron 3.5 Lightning and Granite 4.2; MIT; 186K stars - great for laptops and prototyping.",
+  "Throughput flat at 33 tok/s on an H100 regardless of concurrency (Winder.ai) - 15K calls/day (7.5M output tokens) would take ~2.6 days. No authentication by default; CVE-2026-7482 ('Bleeding Llama', unauthenticated heap read) and CVE-2026-5757 - keep off the network. No true batching.",
+  "Development/prototyping only."),
+ ("LMDeploy", "LMDeploy (TurboMind / PyTorch engines)", 5, 6,
+  "Historically fast TurboMind kernels; Apache-2.0; active (v0.18.0, Sep 2026).",
+  "Does not list Gemma 4, NemotronH or Granite in its supported models - skips most of our candidates.",
+  "Skip."),
+ ("TGI (Hugging Face)", "Hugging Face TGI", 7, 7,
+  "Was the HF default; simple to deploy.",
+  "ARCHIVED / maintenance mode (last release v3.3.7, Dec 2025); README itself recommends vLLM, SGLang, llama.cpp or MLX.",
+  "Do not adopt."),
+]
+wsI = sheet("Inference_Engines", "How to Run the Models on GPU - Inference Engines Compared & Ranked (vLLM, SGLang, llama.cpp, Ollama, TensorRT-LLM, ...)",
+            "Research accessed 2026-11-09 (versions/stars/licences from the GitHub API; features from vendor docs and model cards; benchmarks third-party). Rank 1 = best for THIS use case: nightly batch of 1K-15K transcripts (3K in / ~500 out), JSON-constrained, fine-tuned open models, on-demand GPUs. Details: Engine_Model_Support, Engine_Benchmarks.", "0070C0")
+IH = ["Engine", "Rank - THIS batch use case", "Rank - real-time use case", "Version", "Released", "Licence", "GitHub stars", "Perks", "Cons", "Verdict",
+      "Batching under load", "Offline batch mode", "JSON / structured output", "Quantization", "LoRA serving", "GPU support (L4 / A100 / H100 / RTX PRO 6000)", "Cold start", "Security / ops notes", "Recommended by (model vendors)", "Sources"]
+hdr(wsI, 4, IH, height=60)
+widths(wsI, [24, 11, 11, 11, 11, 13, 10, 70, 70, 30, 46, 40, 46, 40, 36, 50, 34, 46, 40, 55])
+gpus_by_engine = {g["engine"]: g for g in IM["gpu_support"]}
+for i, (lab, key, rb, rr, perks, cons, verdict) in enumerate(ENG):
+    r = 5 + i; e = EJ.get(key, {})
+    put(wsI, r, 1, lab, font=f_bold, al=wrap)
+    put(wsI, r, 2, rb, fmt='0', font=Font(name=FONT, size=12, bold=True), fill=PatternFill("solid", fgColor="C6EFCE" if rb <= 2 else "FFFFFF" if rb <= 4 else "F8CBAD"), al=center)
+    put(wsI, r, 3, rr, fmt='0', font=Font(name=FONT, size=12, bold=True), fill=PatternFill("solid", fgColor="C6EFCE" if rr <= 2 else "FFFFFF" if rr <= 4 else "F8CBAD"), al=center)
+    put(wsI, r, 4, e.get("version", ""), al=wrap); put(wsI, r, 5, e.get("release_date", ""), al=wrap); put(wsI, r, 6, e.get("license", ""), al=wrap)
+    put(wsI, r, 7, (e.get("github") or {}).get("stars"), fmt=NUM)
+    put(wsI, r, 8, perks, al=wrap); put(wsI, r, 9, cons, al=wrap); put(wsI, r, 10, verdict, al=wrap, font=f_bold)
+    put(wsI, r, 11, ej(key, "continuous_batching", 500), al=wrap, font=f_note); put(wsI, r, 12, ej(key, "offline_batch", 450), al=wrap, font=f_note)
+    put(wsI, r, 13, ej(key, "structured_output", 500), al=wrap, font=f_note); put(wsI, r, 14, ej(key, "quantization", 450), al=wrap, font=f_note)
+    put(wsI, r, 15, ej(key, "lora", 400), al=wrap, font=f_note); put(wsI, r, 16, ej(key, "hardware", 500), al=wrap, font=f_note)
+    put(wsI, r, 17, ej(key, "cold_start", 350), al=wrap, font=f_note); put(wsI, r, 18, ej(key, "security", 450) + " | " + ej(key, "ops_ease", 250), al=wrap, font=f_note)
+    put(wsI, r, 19, ej(key, "vendor_recommended_by", 400), al=wrap, font=f_note); put(wsI, r, 20, ejsrc(key), al=wrap, font=f_url)
+    wsI.row_dimensions[r].height = 190
+rI = 5 + len(ENG) + 1
+wsI.cell(row=rI, column=1, value="HOSTING / MANAGED OPTIONS (where the engine runs) - ranked for the nightly batch").font = f_bold; rI += 1
+hdr(wsI, rI, ["Option", "Rank", "", "", "", "", "", "Perks", "Cons", "Verdict"], height=26); rI += 1
+HOST = [("Cloud Run GPU + your own vLLM image (Job/Service)", 1, "Per-second billing, scale to zero, ~5 s instance start, bring-your-own container so any new architecture works; L4 or RTX PRO 6000 (96GB).", "No A100/H100; one GPU per instance; min-instances are billed full; RTX PRO 6000 SM120 kernels need testing on v0.33.", "Best managed fit for a bursty daily batch of the 3B-35B-A3B models."),
+        ("GCE / GKE Job running `vllm run-batch`, terminate after the run", 2, "Any GPU incl. A100/H100/RTX PRO 6000; per-second VM billing with 1-minute minimum; Spot available; full control of vLLM version.", "You own the container, drivers, autoscaling and shutdown automation.", "Use when a model needs A100/H100 (e.g. 27-32B dense) or Spot discounts."),
+        ("Databricks Model Serving / `ai_query` batch", 3, "Governance (Unity Catalog), SQL-native batch via ai_query, serverless GPU endpoints.", "Engine and model coverage for Gemma 4 / Nemotron 3.5 / Granite 4.2 NOT confirmed on Databricks pages; DBU pricing partly unverified; model must be registered.", "Viable only after Databricks confirms your fine-tuned architecture."),
+        ("Vertex AI Model Garden (vLLM container) / endpoints", 4, "Managed endpoints and batch prediction, IAM/VPC-SC.", "Documented vLLM container is v0.9.2 (Jul 2025) - too old for Gemma 4 / Nemotron 3.5 / Qwen3.8; needs a custom container; Vertex management fee.", "Only with a custom up-to-date vLLM container."),
+        ("NVIDIA NIM / Dynamo", 5, "NVIDIA-packaged containers with enterprise support; Dynamo for multi-node/disaggregated serving.", "Pricing/licence and per-GPU profiles UNVERIFIED; overkill for 1K-15K calls/day.", "Not needed at this scale.")]
+for h_ in HOST:
+    put(wsI, rI, 1, h_[0], font=f_bold, al=wrap); put(wsI, rI, 2, h_[1], fmt='0', font=Font(name=FONT, size=12, bold=True), al=center)
+    put(wsI, rI, 8, h_[2], al=wrap); put(wsI, rI, 9, h_[3], al=wrap); put(wsI, rI, 10, h_[4], al=wrap, font=f_bold); wsI.row_dimensions[rI].height = 60; rI += 1
+rI += 1
+wsI.cell(row=rI, column=1, value="RECOMMENDED SETUP & PRACTICAL NOTES").font = f_bold; rI += 1
+RECIPE = [
+ "1) Engine: vLLM (container pinned to v0.33.x) in offline/batch mode - `vllm run-batch` or the offline `LLM` class - with a JSON-schema structured output (xgrammar/llguidance) for every call. Benchmark SGLang as a challenger on the same transcripts.",
+ "2) Fine-tuned weights: for dense models (Gemma 4 12B/31B, Granite 4.2) LoRA adapters can be served as-is (multi-LoRA); for MoE / hybrid models (Nemotron 3.5 Lightning, Gemma 4 26B-A4B, Qwen3.x) MERGE the LoRA into the weights first and serve the merged checkpoint - safest, loses multi-adapter switching.",
+ "3) Precision by GPU: L4 / RTX PRO 6000 / H100 -> FP8 (or W4A16 for tight memory); A100 -> BF16 (no native FP8; Marlin FP8 weight-only possible). On RTX PRO 6000 avoid native NVFP4 until retested on v0.33.",
+ "4) Sizing sanity: 15K transcripts/day = ~52M tokens (45M prefill + 7.5M decode) = only ~87 output tok/s averaged over 24 h, so ONE GPU finishes the nightly batch in hours with vLLM/SGLang. Engine choice matters for model support, correctness and GPU-hours billed - not for peak tok/s.",
+ "5) Operations: run as a Job that starts the instance, loads the model from a bucket, processes the day's transcripts, writes results and shuts down (this is the 'billed only while running' assumption in the cost sheets). Keep servers off public networks (esp. Ollama).",
+ "6) Measure before committing: run `vllm bench serve` (or GuideLLM) with your 3K-in/500-out JSON-constrained workload on the target GPU and replace the planning tok/s on SLM_Models (col U). The only published cross-engine data is H100 with generic prompts; none exists for L4/RTX PRO 6000, Gemma 4 or Nemotron 3.5 Lightning.",
+ "Validation of our planning figure: Winder.ai measured Qwen3.8-27B (8-bit) on 1xH100 at 1,610 (vLLM) - 1,725 (SGLang) output tok/s at 50 concurrent requests; the workbook assumes 1,500 tok/s for 27-32B dense models on H100 - consistent."]
+for t in RECIPE:
+    c = wsI.cell(row=rI, column=1, value=t); c.font = f_norm; rI += 1
+wsI.freeze_panes = "B5"
+
+# ---- support matrix
+ENGCAN = {"vLLM": "vLLM", "SGLang": "SGLang", "llama.cpp": "llama.cpp", "Ollama": "Ollama", "TensorRT-LLM": "TensorRT-LLM", "NVIDIA NIM": "NVIDIA NIM", "HF TGI": "TGI (archived)", "LMDeploy": "LMDeploy",
+          "Vertex AI Model Garden vLLM": "Vertex Model Garden vLLM", "Cloud Run GPU": "Cloud Run GPU", "Databricks Model Serving": "Databricks Model Serving"}
+MODELS = ["Gemma 4", "Nemotron 3.5 Lightning", "Granite 4.2", "gpt-oss-20b", "Qwen3.8", "Phi-4", "Nemotron Nano 9B v2"]
+def model_keys(m):
+    ks = []
+    if m == "all targets" or m.startswith("Gemma 4, Nemotron 3.5, Granite"): return list(MODELS)
+    for mm in MODELS:
+        base = mm.split()[0]
+        if (mm == "Gemma 4" and "Gemma 4" in m) or (mm == "Nemotron 3.5 Lightning" and "Nemotron 3.5" in m) or (mm == "Granite 4.2" and "Granite" in m) or \
+           (mm == "gpt-oss-20b" and "gpt-oss" in m) or (mm == "Qwen3.8" and "Qwen3.8" in m) or (mm == "Phi-4" and "Phi-4" in m) or (mm == "Nemotron Nano 9B v2" and "Nano 9B" in m): ks.append(mm)
+    return ks
+grid = {}; detail = {}
+for rec in IM["matrix"]:
+    en = ENGCAN.get(rec["engine"], rec["engine"])
+    for mk in model_keys(rec["model"]):
+        specific = not (rec["model"] == "all targets" or rec["model"].startswith("Gemma 4, Nemotron 3.5, Granite"))
+        if (en, mk) not in grid or specific:
+            grid[(en, mk)] = rec["status"]; detail[(en, mk)] = rec["detail"]
+wsS = sheet("Engine_Model_Support", "Engine x Model Support Matrix (as of 2026-11-09)",
+            "Status per research agent from engine docs, model cards and repo activity. day0 = supported at launch; supported = documented; partial = caveats; not_listed = absent from the engine's supported-model docs; unverified = no evidence found. LoRA/hardware details below.", "0070C0")
+hdr(wsS, 4, ["Engine"] + MODELS + ["Hardware notes (L4 / A100 / H100 / RTX PRO 6000)"], height=46)
+widths(wsS, [28] + [20] * len(MODELS) + [70])
+COL = {"day0": "C6EFCE", "supported": "E2F0D9", "partial": "FFF2CC", "inferred": "FFF2CC", "unverified": "FCE4D6", "not_listed": "F8CBAD"}
+eng_rows = ["vLLM", "SGLang", "llama.cpp", "Ollama", "TensorRT-LLM", "NVIDIA NIM", "LMDeploy", "TGI (archived)", "Vertex Model Garden vLLM", "Cloud Run GPU", "Databricks Model Serving"]
+gpu_notes = {}
+for g in IM["gpu_support"]:
+    gpu_notes[ENGCAN.get(g["engine"], g["engine"])] = " | ".join(f"{k.replace('_',' ')}: {v}" for k, v in g.items() if k not in ("engine", "sources"))
+for i, en in enumerate(eng_rows):
+    r = 5 + i
+    put(wsS, r, 1, en, font=f_bold)
+    for j, mk in enumerate(MODELS):
+        st = grid.get((en, mk), "unverified")
+        put(wsS, r, 2 + j, st if (en, mk) in grid else "not checked", fill=PatternFill("solid", fgColor=COL.get(st, "FFFFFF") if (en, mk) in grid else "EDEDED"), al=center)
+    put(wsS, r, 2 + len(MODELS), gpu_notes.get(en, ""), al=wrap, font=f_note)
+    wsS.row_dimensions[r].height = 62
+r = 5 + len(eng_rows) + 2
+wsS.cell(row=r, column=1, value="DETAIL (every record with sources)").font = f_bold; r += 1
+hdr(wsS, r, ["Engine", "Model", "Status", "Detail", "Sources"], height=24); r += 1
+for rec in IM["matrix"]:
+    put(wsS, r, 1, rec["engine"], font=f_bold, al=wrap); put(wsS, r, 2, rec["model"], al=wrap); put(wsS, r, 3, rec["status"], fill=PatternFill("solid", fgColor=COL.get(rec["status"], "FFFFFF")), al=center)
+    put(wsS, r, 4, rec["detail"], al=wrap); url_cell(wsS, r, 5, " ; ".join(rec.get("sources", [])))
+    wsS.row_dimensions[r].height = 58; r += 1
+r += 1
+wsS.cell(row=r, column=1, value="Model notes / corrections").font = f_bold; r += 1
+for k, v in IM["meta"]["model_notes"].items():
+    wsS.cell(row=r, column=1, value=f"• {k}: {v}").font = f_note; r += 1
+wsS.freeze_panes = "B5"
+
+# ---- benchmarks
+wsBM = sheet("Engine_Benchmarks", "Published Engine Benchmarks (third-party; NOT on our workload)",
+             "Numbers copied from sources as summarised by a fetch tool - verify before quoting. None used 3K-in/500-out JSON-constrained loads; none cover L4 / RTX PRO 6000, Gemma 4 or Nemotron 3.5 Lightning. Differences <~10% between engines are noise.", "0070C0")
+hdr(wsBM, 4, ["Source id", "Date", "Hardware", "Model", "Unit", "Engine / config", "Metrics", "Caveat", "Source URL"], height=30)
+widths(wsBM, [22, 11, 28, 30, 22, 22, 70, 50, 55])
+r = 5
+for b in IB["benchmarks"]:
+    res = b.get("results") or [{}]
+    for x in res:
+        eng = x.get("engine", "") if isinstance(x, dict) else ""
+        met = ", ".join(f"{k}={v}" for k, v in x.items() if k != "engine") if isinstance(x, dict) else str(x)
+        put(wsBM, r, 1, b.get("id")); put(wsBM, r, 2, b.get("date")); put(wsBM, r, 3, b.get("hardware"), al=wrap); put(wsBM, r, 4, b.get("model"), al=wrap); put(wsBM, r, 5, b.get("unit"), al=wrap)
+        put(wsBM, r, 6, eng, font=f_bold); put(wsBM, r, 7, met, al=wrap); put(wsBM, r, 8, b.get("caveat", ""), al=wrap, font=f_note); url_cell(wsBM, r, 9, b.get("source_url", ""))
+        r += 1
+r += 1
+wsBM.cell(row=r, column=1, value="Gaps (not found): " + " | ".join(IB.get("gaps", []))).font = f_note
+wsBM.freeze_panes = "A5"
+
+# =====================================================================
 # 11. DEPLOYMENT OPTIONS
 # =====================================================================
 wsO = sheet("Deployment_Options", "GCP vs Databricks - Options to Host & Fine-tune the SLMs On-Demand",
@@ -1268,6 +1423,11 @@ for m in slm:
     su = m["source_urls"] if isinstance(m["source_urls"], str) else " ; ".join(m["source_urls"]); collect(su, "SLM specs")
 for b in bench: collect(b["source_url"], "SLM benchmarks")
 for g in gpu_raw: collect(g["source_url"], "GPU pricing")
+_ie = load("inference_engines"); _im = load("inference_engines_support_matrix"); _ib = load("inference_engines_benchmarks")
+for _e in _ie["engines"]: collect(" ".join(_e.get("source_urls", [])) if isinstance(_e.get("source_urls"), list) else str(_e.get("source_urls", "")), "Inference engines")
+for _r in _im["matrix"]: collect(" ".join(_r.get("sources", [])), "Engine model support")
+for _g in _im["gpu_support"]: collect(" ".join(_g.get("sources", [])), "Engine GPU support")
+for _b in _ib["benchmarks"]: collect(_b.get("source_url", ""), "Engine benchmarks")
 for t in ["https://cloud.google.com/run/pricing", "https://cloud.google.com/bigquery/pricing", "https://cloud.google.com/bigquery/docs/choose-text-generation-function"]: collect(t, "BigQuery batch discount")
 for j, (u, use) in enumerate(sorted(urls.items())):
     r = 4 + j
@@ -1294,6 +1454,7 @@ rows0 = [
  ("  Focus_Compare", "Nemotron 3.5 Lightning + Gemma 4 12B vs Flash-tier-and-above closed models (Gemini 3.5+, Claude Sonnet/Opus, gpt-6 luna/sol/astra), with stress test and managed-API cross-check."),
  ("  Accuracy_Expectations", "Expected accuracy ranges: open SLM zero-shot vs closed flash-tier vs after SFT/distillation from Gemini 3.6 Flash (extraction + summarization), label cost, recipe, risks. Evidence on Acc_Evidence_* sheets."),
  ("  Accuracy_All_Models", "Per-model expected accuracy for all 17 SLMs: zero-shot vs after SFT/distillation (extraction + summarization), with monthly cost and SFT cost alongside."),
+ ("  Inference_Engines", "How to run the models on GPU: vLLM, SGLang, llama.cpp, Ollama, TensorRT-LLM, LMDeploy, TGI + managed hosting options - perks, cons, ranking (batch and real-time), recommended setup. Support matrix and benchmarks on Engine_Model_Support / Engine_Benchmarks."),
  ("  SLM_GPU_Matrix", "Every model on every GPU (L4, A100, RTX PRO 6000, H100): precision needed, tok/s, run minutes, cost per 1K calls, per day and per month; cheapest flagged."),
  ("  H100_vs_A100", "What H100 adds over A100 (FP8, bandwidth, compute), measured ratios, cost per token / per SFT job by hosting option, and when each is the right choice."),
  ("  SLM_Serving_Fit", "How long a batch run takes per model (prefill + batched decode throughput), which GPU it fits on (incl. L4 for small models) and cost per run at the reference volume."),
@@ -1311,7 +1472,7 @@ for i, (a, b) in enumerate(rows0):
     ws0.row_dimensions[r].height = max(16, 15 * (len(b) // 135 + 1))
 wb.move_sheet("README", offset=-(len(wb.sheetnames) - 1))
 order = ["README", "Assumptions", "Closed_Pricing", "Closed_Std", "Closed_Batch", "Closed_BigQuery", "SLM_Models", "SLM_Benchmarks", "GPU_Pricing", "Deployment_Options",
-         "SLM_Serving_Fit", "SLM_GPU_Matrix", "H100_vs_A100", "SLM_Daily_Cost", "SFT_Cost", "Acc_Evidence_ZeroShot", "Acc_Evidence_FineTune", "GPU_Pricing_Raw", "Sources"]
+         "Inference_Engines", "Engine_Model_Support", "Engine_Benchmarks", "SLM_Serving_Fit", "SLM_GPU_Matrix", "H100_vs_A100", "SLM_Daily_Cost", "SFT_Cost", "Acc_Evidence_ZeroShot", "Acc_Evidence_FineTune", "GPU_Pricing_Raw", "Sources"]
 order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare"); order.insert(3, "Accuracy_Expectations"); order.insert(4, "Accuracy_All_Models")
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
