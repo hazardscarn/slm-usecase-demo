@@ -1,0 +1,617 @@
+[
+ {
+  "user_listed_name": "muse-glimmer-30B",
+  "model": "Meta Muse Glimmer 30B",
+  "verification_status": "VERIFIED (exists; name is exact: meta-models/Muse-Glimmer-30B)",
+  "developer": "Meta (Meta Superintelligence Labs)",
+  "country_origin": "USA",
+  "release_date": "2026-08-10 (model card: August 2026)",
+  "license": "Apache 2.0",
+  "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0",
+  "total_params": "~29.6B (30B text decoder + ~1.8B ViT perception encoder; vision-language)",
+  "architecture": "dense",
+  "active_params": "~29.6B (dense)",
+  "num_experts": null,
+  "context_window": "131,072+ tokens (128K+)",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": 59.6,
+   "fp8": 32.8,
+   "int4": "~17 (Q4 K-quant GGUF); NVFP4 25.4 is Blackwell-only W4A4 checkpoint"
+  },
+  "hf_url": "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang; HF card lists Transformers/vLLM/SGLang. Multimodal arch (muse_glimmer) is new - confirm PEFT/Unsloth support before committing.",
+  "min_gpu_class": {
+   "bf16": "1x H100 80GB / A100 80GB (tight KV)",
+   "fp8": "1x L40S 48GB / A100 80GB / H100",
+   "int4": "1x 24-32GB (RTX 5090 32GB, L4 24GB tight)"
+  },
+  "throughput_estimate": "AA API median ~95 tok/s (reasoning High). Single RTX 5090 NVFP4: 68.8 tok/s greedy; 2x5090 w/ DFlash spec-decoding ~240 tok/s (vLLM recipe). No H100 figure published.",
+  "source_urls": [
+   "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+   "https://recipes.vllm.ai/meta-models/Muse-Glimmer-30B",
+   "https://artificialanalysis.ai/models/open-source/small"
+  ],
+  "notes": "Distilled from Muse Spark; Gemma-like architecture (5:1-ish local/global attn, 2048 sliding window, GQA 32/2). Reasoning model with separate reasoning parser. Heavy US-origin plus Apache = low policy risk."
+ },
+ {
+  "user_listed_name": "Qwen3.8-27B",
+  "model": "Qwen3.8-27B",
+  "verification_status": "VERIFIED (exists; Qwen/Qwen3.8-27B). Newest 27B Qwen. Note Qwen3.8-Flash-Next (125B-A6B, Aug 26 2026) is the only other Qwen3.8 open model found.",
+  "developer": "Alibaba Cloud (Qwen Team / Tongyi Lab)",
+  "country_origin": "China - FLAG: Chinese-origin; may trigger US corporate security/policy review (supply-chain/vendor-risk, some state/federal procurement bans apply to Chinese-origin AI apps; weights are local but provenance reviews common)",
+  "release_date": "2026-08-14",
+  "license": "Apache 2.0",
+  "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/main/LICENSE",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0",
+  "total_params": "27B (+vision encoder)",
+  "architecture": "dense (hybrid Gated DeltaNet + Gated Attention, 64 layers, VL)",
+  "active_params": "27B",
+  "num_experts": null,
+  "context_window": "262,144 native; up to ~1M with YaRN",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~54-56",
+   "fp8": "~27-28",
+   "int4": "~15-17"
+  },
+  "hf_url": "https://huggingface.co/Qwen/Qwen3.8-27B",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang; NVIDIA NVFP4 variant exists (nvidia/Qwen3.8-27B-NVFP4); Unsloth ships GGUF/finetune notebooks for Qwen3.8-27B",
+  "min_gpu_class": {
+   "bf16": "1x H100 80GB / A100 80GB",
+   "fp8": "1x L40S 48GB / H100",
+   "int4": "1x 24GB (RTX 4090/L4 tight) or 32GB"
+  },
+  "throughput_estimate": "AA API median ~43 tok/s (Xhigh reasoning). No 1xH100 figure found; dense 27B in FP8 on H100 typically ~60-100 tok/s single-stream (ESTIMATE, not sourced).",
+  "source_urls": [
+   "https://huggingface.co/Qwen/Qwen3.8-27B",
+   "https://huggingface.co/nvidia/Qwen3.8-27B-NVFP4",
+   "https://artificialanalysis.ai/models/open-source/small"
+  ],
+  "notes": "Highest AA index among the dense ones in this list (value reported 303 by page scraper; AA index v5 scale unclear - treat as relative). Thinking mode default; configure effort low/medium for cheap summarization."
+ },
+ {
+  "user_listed_name": "Gemma 4 31B",
+  "model": "Gemma 4 31B (it)",
+  "verification_status": "VERIFIED (google/gemma-4-31B-it)",
+  "developer": "Google DeepMind",
+  "country_origin": "USA",
+  "release_date": "2026-04-02",
+  "license": "Apache 2.0 (Gemma 4 moved from the custom Gemma terms to Apache 2.0)",
+  "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0 (confirm the linked page; Gemma 1-3 had a Prohibited Use Policy)",
+  "total_params": "30.7B (vision encoder included)",
+  "architecture": "dense",
+  "active_params": "30.7B",
+  "num_experts": null,
+  "context_window": "256K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": 69.9,
+   "fp8": 34.9,
+   "int4": 17.5
+  },
+  "hf_url": "https://huggingface.co/google/gemma-4-31B-it",
+  "fine_tuning": "TRL, PEFT (LoRA/QLoRA), bitsandbytes, Unsloth Studio (HF Gemma 4 blog); full FT needs multi-GPU",
+  "min_gpu_class": {
+   "bf16": "1x H100 80GB (limited KV) ; 2x for headroom",
+   "fp8": "1x L40S 48GB / H100",
+   "int4": "1x 24GB (RTX 4090) w/ short context"
+  },
+  "throughput_estimate": "AA API median ~36 tok/s (reasoning). No 1xH100 vLLM figure found.",
+  "source_urls": [
+   "https://huggingface.co/google/gemma-4-26B-A4B",
+   "https://ai.google.dev/gemma/docs/core",
+   "https://huggingface.co/blog/gemma4",
+   "https://artificialanalysis.ai/models/open-source/small"
+  ],
+  "notes": "Memory table from Google docs (includes weights only, not KV). Vectara summarization hallucination 7.4% (worse than 26B-A4B 5.2%)."
+ },
+ {
+  "user_listed_name": "Qwen 2.5-25B-A3B",
+  "model": "NO SUCH MODEL. Closest real: Qwen3.6-35B-A3B (also Qwen3.5-35B-A3B, Qwen3-30B-A3B)",
+  "verification_status": "NOT VERIFIED / DOES NOT EXIST. There is no Qwen2.5-25B-A3B. Qwen 2.5 had no A3B MoE. Closest Qwen A3B MoEs: Qwen3-30B-A3B (Apr 2025), Qwen3.5-35B-A3B (Mar 2026), Qwen3.6-35B-A3B (Apr 2026, newest). The '25B-A3B' size also resembles Google Gemma 4 26B-A4B (25.2B total, 3.8B active) - may be a conflation.",
+  "developer": "Alibaba Cloud (Qwen Team)",
+  "country_origin": "China - FLAG (same policy concern as Qwen3.8-27B)",
+  "release_date": "2026-04-16 (blog Apr 14; HF card dated Apr 22)",
+  "license": "Apache 2.0",
+  "license_url": "https://huggingface.co/Qwen/Qwen3.6-35B-A3B/blob/main/LICENSE",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0",
+  "total_params": "35B",
+  "architecture": "MoE (hybrid Gated DeltaNet + Gated Attention, 40 layers, multimodal)",
+  "active_params": "3B",
+  "num_experts": "256 routed (8 routed + 1 shared active = 9)",
+  "context_window": "262,144 native; ~1.01M extended",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~70",
+   "fp8": "~35",
+   "int4": "~18-20"
+  },
+  "hf_url": "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang; MoE QLoRA/LoRA supported in Unsloth for Qwen3.x MoE (verify for 3.6 hybrid arch)",
+  "min_gpu_class": {
+   "bf16": "1x H100 80GB / A100 80GB",
+   "fp8": "1x L40S 48GB / H100",
+   "int4": "1x 24GB w/ offload or 32GB"
+  },
+  "throughput_estimate": "No sourced 1xH100 number. MoE with 3B active typically very fast (>150 tok/s single-stream on H100, ESTIMATE).",
+  "source_urls": [
+   "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+   "https://qwen.ai/blog?id=qwen3.6-35b-a3b",
+   "https://huggingface.co/Qwen/Qwen3.5-35B-A3B"
+  ],
+  "notes": "Original Qwen3-30B-A3B: 30.5B/3.3B, 128 experts/8 active, Apache 2.0, 32K native (131K YaRN). Recommend user confirms which they meant."
+ },
+ {
+  "user_listed_name": "Gemma 4 26B-A4B",
+  "model": "Gemma 4 26B A4B (it)",
+  "verification_status": "VERIFIED (google/gemma-4-26B-A4B[-it]); actual total 25.2B, active 3.8B",
+  "developer": "Google DeepMind",
+  "country_origin": "USA",
+  "release_date": "2026-04-02",
+  "license": "Apache 2.0",
+  "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0",
+  "total_params": "25.2B (marketed 26B)",
+  "architecture": "MoE",
+  "active_params": "3.8B (marketed 4B)",
+  "num_experts": "128 routed + 1 shared; 8 routed active",
+  "context_window": "256K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": 57.7,
+   "fp8": 28.8,
+   "int4": 14.4
+  },
+  "hf_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "fine_tuning": "TRL/PEFT/Unsloth; all 26B params must be in VRAM even though 4B active (QLoRA on 24-48GB feasible)",
+  "min_gpu_class": {
+   "bf16": "1x H100 80GB / A100 80GB",
+   "fp8": "1x L40S 48GB / A100 40GB",
+   "int4": "1x L4/RTX 4090 24GB"
+  },
+  "throughput_estimate": "AA API median ~67 tok/s ($0.10/$0.34 per M tokens). No H100 vLLM figure found.",
+  "source_urls": [
+   "https://huggingface.co/google/gemma-4-26B-A4B",
+   "https://huggingface.co/blog/gemma4",
+   "https://artificialanalysis.ai/models/gemma-4-26b-a4b",
+   "https://ai.google.dev/gemma/docs/core"
+  ],
+  "notes": "Best-measured summarization faithfulness here: Vectara hallucination 5.2% (consistency 94.8%, 99.8% answer rate, 67 avg words). Strong cost/perf candidate."
+ },
+ {
+  "user_listed_name": "GPT-oss-20B (high reasoning)",
+  "model": "gpt-oss-20b",
+  "verification_status": "VERIFIED (openai/gpt-oss-20b). 'High' = reasoning-effort setting (low/medium/high), not a separate model.",
+  "developer": "OpenAI",
+  "country_origin": "USA",
+  "release_date": "2025-08-05",
+  "license": "Apache 2.0 + OpenAI gpt-oss usage policy (minimal)",
+  "license_url": "https://huggingface.co/openai/gpt-oss-20b/blob/main/LICENSE",
+  "commercial_use_allowed": true,
+  "license_restrictions": "Apache 2.0; supplementary usage policy prohibiting unlawful use",
+  "total_params": "21B (20.9B)",
+  "architecture": "MoE",
+  "active_params": "3.6B",
+  "num_experts": "32 experts, top-4 routing (from OpenAI model card; not re-fetched)",
+  "context_window": "128K (131,072)",
+  "native_precision": "MXFP4 for MoE weights (rest BF16)",
+  "weights_gb": {
+   "bf16": "~42 (dequantized)",
+   "fp8": "~21",
+   "mxfp4_native": "~13-14 (fits 16GB)",
+   "int4": "~13"
+  },
+  "hf_url": "https://huggingface.co/openai/gpt-oss-20b",
+  "fine_tuning": "LoRA via TRL/PEFT and Unsloth (OpenAI cookbook has fine-tune guide); QLoRA on MXFP4 weights limited - typically train in BF16 (~40-48GB) then re-quantize",
+  "min_gpu_class": {
+   "bf16": "1x A100/H100 80GB (or 48GB)",
+   "mxfp4": "1x 16GB (L4 24GB OK)"
+  },
+  "throughput_estimate": "AA API median ~159 tok/s (High). Fast on H100 (reported many hundreds tok/s in vLLM; no figure fetched).",
+  "source_urls": [
+   "https://huggingface.co/openai/gpt-oss-20b",
+   "https://openai.com/index/introducing-gpt-oss/",
+   "https://artificialanalysis.ai/models/gpt-oss-20b"
+  ],
+  "notes": "Harmony chat format required. Vectara shows gpt-oss-120B at 14.2% hallucination (worst in list) - 20B not on leaderboard; reasoning models tend to over-elaborate in summaries - test with low/medium effort."
+ },
+ {
+  "user_listed_name": "IBM Granite 4.2 30B",
+  "model": "Granite 4.2 30B",
+  "verification_status": "VERIFIED (ibm-granite/granite-4.2-30b)",
+  "developer": "IBM",
+  "country_origin": "USA",
+  "release_date": "2026-08-25",
+  "license": "Apache 2.0",
+  "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None; IBM signs weights, provides IP indemnity via watsonx (not for self-hosted HF weights)",
+  "total_params": "30B",
+  "architecture": "dense (reasoning; 4.2 is dense, unlike 4.0 hybrid Mamba)",
+  "active_params": "30B",
+  "num_experts": null,
+  "context_window": "128K (512K extended on 30B only)",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~60",
+   "fp8": "~30",
+   "int4": "~17-18"
+  },
+  "hf_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang; IBM publishes Granite fine-tune recipes (TRL/PEFT)",
+  "min_gpu_class": {
+   "bf16": "1x H100/A100 80GB",
+   "fp8": "1x L40S 48GB",
+   "int4": "1x 24GB"
+  },
+  "throughput_estimate": "No AA speed yet; models ship with speculative-decoding layer. No 1xH100 number found.",
+  "source_urls": [
+   "https://huggingface.co/ibm-granite/granite-4.2-30b",
+   "https://research.ibm.com/blog/introducing-granite-4-2",
+   "https://www.ibm.com/granite/docs/models/granite4-2"
+  ],
+  "notes": "12 languages. Trained with strong IFBench/enterprise focus. Granite 4.0-H-Small (predecessor) Vectara hallucination 5.2%."
+ },
+ {
+  "user_listed_name": "Nemotron 3.5 Lightning (30B-A3B)",
+  "model": "NVIDIA Nemotron 3.5 Lightning 30B-A3B",
+  "verification_status": "VERIFIED (nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16 and -NVFP4)",
+  "developer": "NVIDIA",
+  "country_origin": "USA",
+  "release_date": "2026-08-11 (tech report Oct 14, 2026)",
+  "license": "OpenMDW License Agreement 1.1",
+  "license_url": "https://openmdw.ai/license/1-1/",
+  "commercial_use_allowed": true,
+  "license_restrictions": "OpenMDW is permissive (open model/data/weights); read for attribution/patent terms. Note earlier Nemotron models use the NVIDIA Open Model License.",
+  "total_params": "30B",
+  "architecture": "MoE hybrid Mamba-2 + Transformer (text only)",
+  "active_params": "3B",
+  "num_experts": "Not stated on pages fetched; Nemotron 3 Nano sibling = 128 routed + 1 shared, 6 active (unverified for 3.5)",
+  "context_window": "up to 1M (256K default on 1xH100)",
+  "native_precision": "BF16 and NVFP4 checkpoints",
+  "weights_gb": {
+   "bf16": "~60",
+   "fp8": "~30",
+   "int4/nvfp4": "~17-19"
+  },
+  "hf_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+  "fine_tuning": "Explicitly intended for customization (SFT, RL, distillation); NeMo/Megatron-Bridge recipes, HF PEFT; Unsloth guide exists",
+  "min_gpu_class": {
+   "bf16": "1x H100 80GB / A100 80GB (NVIDIA-validated)",
+   "nvfp4": "Blackwell GPU (B200/RTX PRO 6000/5090)"
+  },
+  "throughput_estimate": "No tok/s on card. Tech report gives Super throughput on GB200 only. Native MTP speculative decoding + DFlash/DSpark drafters.",
+  "source_urls": [
+   "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+   "https://research.nvidia.com/labs/nemotron/Nemotron-3.5-Super-and-Lightning/",
+   "https://unsloth.ai/docs/models/nemotron-3.5",
+   "https://github.com/NVIDIA-NeMo/Nemotron/blob/main/docs/nemotron/lightning35/README.md"
+  ],
+  "notes": "Name matches exactly. Mamba hybrids need recent vLLM and special LoRA targets."
+ },
+ {
+  "user_listed_name": "Gemma 4 12B",
+  "model": "Gemma 4 12B (Unified)",
+  "verification_status": "VERIFIED (google/gemma-4-12B)",
+  "developer": "Google DeepMind",
+  "country_origin": "USA",
+  "release_date": "2026-06-03",
+  "license": "Apache 2.0",
+  "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0",
+  "total_params": "12B",
+  "architecture": "dense (encoder-free multimodal: text/image/audio/video)",
+  "active_params": "12B",
+  "num_experts": null,
+  "context_window": "256K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": 26.7,
+   "fp8": 13.4,
+   "int4": 6.7
+  },
+  "hf_url": "https://huggingface.co/google/gemma-4-12B",
+  "fine_tuning": "TRL/PEFT/Unsloth; QLoRA fits on 16-24GB",
+  "min_gpu_class": {
+   "bf16": "1x L40S 48GB / A100 40GB (or 32GB card)",
+   "fp8": "1x L4 24GB",
+   "int4": "1x 12-16GB"
+  },
+  "throughput_estimate": "Not on AA; no source found.",
+  "source_urls": [
+   "https://huggingface.co/google/gemma-4-12B",
+   "https://ai.google.dev/gemma/docs/core",
+   "https://ai.google.dev/gemma/docs/releases"
+  ],
+  "notes": "Native audio input could allow direct call-audio use, but audio quality for telephony untested."
+ },
+ {
+  "user_listed_name": "IBM Granite 4.2 8B",
+  "model": "Granite 4.2 8B",
+  "verification_status": "VERIFIED (ibm-granite/granite-4.2-8b)",
+  "developer": "IBM",
+  "country_origin": "USA",
+  "release_date": "2026-08-25",
+  "license": "Apache 2.0",
+  "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None",
+  "total_params": "8B",
+  "architecture": "dense",
+  "active_params": "8B",
+  "num_experts": null,
+  "context_window": "128K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~16",
+   "fp8": "~8",
+   "int4": "~5 (download 5.3GB reported for quantized-ish artifact)"
+  },
+  "hf_url": "https://huggingface.co/ibm-granite/granite-4.2-8b",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang",
+  "min_gpu_class": {
+   "bf16": "1x L4 24GB (short ctx)/A10G",
+   "fp8": "1x L4",
+   "int4": "1x 8-12GB"
+  },
+  "throughput_estimate": "AA API median ~88 tok/s. Review warns runtime memory can reach ~27GB with long context.",
+  "source_urls": [
+   "https://huggingface.co/ibm-granite/granite-4.2-30b",
+   "https://artificialanalysis.ai/models/creators/ibm",
+   "https://www.eesel.ai/blog/granite-4-2-review"
+  ],
+  "notes": "IFBench 79.33 is higher than the 30B (77.17)."
+ },
+ {
+  "user_listed_name": "NVIDIA Nemotron Nano 9B v2",
+  "model": "NVIDIA-Nemotron-Nano-9B-v2",
+  "verification_status": "VERIFIED (nvidia/NVIDIA-Nemotron-Nano-9B-v2)",
+  "developer": "NVIDIA",
+  "country_origin": "USA",
+  "release_date": "2025-08-18",
+  "license": "NVIDIA Open Model License Agreement",
+  "license_url": "https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/",
+  "commercial_use_allowed": true,
+  "license_restrictions": "Commercial use and derivative models permitted; keep attribution/notice, guardrail-bypass termination clause",
+  "total_params": "9B (8.9B)",
+  "architecture": "dense hybrid Mamba-2/Transformer (4 attention layers)",
+  "active_params": "9B",
+  "num_experts": null,
+  "context_window": "128K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~18",
+   "fp8": "~9",
+   "int4": "~5"
+  },
+  "hf_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  "fine_tuning": "NeMo/Megatron-LM; HF PEFT LoRA/QLoRA; Unsloth supports; reasoning on/off toggle and thinking-budget",
+  "min_gpu_class": {
+   "bf16": "1x A10G 24GB / L4 24GB",
+   "fp8": "1x 16GB"
+  },
+  "throughput_estimate": "NVIDIA claims up to 6x throughput vs similar-size transformers at long reasoning lengths (NVIDIA blog); no tok/s number fetched.",
+  "source_urls": [
+   "https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-9B-v2"
+  ],
+  "notes": "Oldest model in list (Aug 2025). IFEval 90.3 (reasoning on) is the only classic IFEval figure in this set."
+ },
+ {
+  "user_listed_name": "IBM Granite 4.2 3B",
+  "model": "Granite 4.2 3B",
+  "verification_status": "VERIFIED (ibm-granite/granite-4.2-3b)",
+  "developer": "IBM",
+  "country_origin": "USA",
+  "release_date": "2026-08-25",
+  "license": "Apache 2.0",
+  "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None",
+  "total_params": "3B",
+  "architecture": "dense",
+  "active_params": "3B",
+  "num_experts": null,
+  "context_window": "128K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~6",
+   "fp8": "~3",
+   "int4": "~2 (2.2GB download reported)"
+  },
+  "hf_url": "https://huggingface.co/ibm-granite/granite-4.2-3b",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang; full FT feasible on 1x 80GB",
+  "min_gpu_class": {
+   "bf16": "1x T4/L4 16-24GB",
+   "int4": "CPU/laptop"
+  },
+  "throughput_estimate": "No source.",
+  "source_urls": [
+   "https://huggingface.co/ibm-granite/granite-4.2-30b",
+   "https://huggingface.co/ibm-granite/granite-4.2-3b"
+  ],
+  "notes": "No agentic-RL stage (only 8B/30B got it). MMLU-ProX lite just 27.8 - weak multilingual."
+ },
+ {
+  "user_listed_name": "Gemma 4 E4B",
+  "model": "Gemma 4 E4B (it)",
+  "verification_status": "VERIFIED (google/gemma-4-E4B[-it])",
+  "developer": "Google DeepMind",
+  "country_origin": "USA",
+  "release_date": "2026-04-02",
+  "license": "Apache 2.0",
+  "license_url": "https://ai.google.dev/gemma/docs/gemma_4_license",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None beyond Apache 2.0",
+  "total_params": "~8B incl. per-layer embeddings (4.5B effective)",
+  "architecture": "dense with Per-Layer Embeddings (PLE)",
+  "active_params": "4.5B effective",
+  "num_experts": null,
+  "context_window": "128K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": 17.9,
+   "fp8": 8.9,
+   "int4": 4.5
+  },
+  "hf_url": "https://huggingface.co/google/gemma-4-E4B-it",
+  "fine_tuning": "TRL/PEFT/Unsloth; QLoRA on 12-16GB",
+  "min_gpu_class": {
+   "bf16": "1x L4 24GB",
+   "int4": "1x 8GB / edge"
+  },
+  "throughput_estimate": "No source.",
+  "source_urls": [
+   "https://huggingface.co/blog/gemma4",
+   "https://ai.google.dev/gemma/docs/core"
+  ],
+  "notes": "Audio input supported. Note docs list E4B as 4B but total with embeddings is 8B (memory table consistent with ~8B)."
+ },
+ {
+  "user_listed_name": "(suggested extra)",
+  "model": "Microsoft Phi-4 (14B)",
+  "verification_status": "VERIFIED (microsoft/phi-4); older model (Dec 2024) - check for newer Phi release",
+  "developer": "Microsoft",
+  "country_origin": "USA",
+  "release_date": "2024-12-12 (open weights Jan 2025)",
+  "license": "MIT",
+  "license_url": "https://huggingface.co/microsoft/phi-4/blob/main/LICENSE",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None",
+  "total_params": "14B",
+  "architecture": "dense",
+  "active_params": "14B",
+  "num_experts": null,
+  "context_window": "16K (short for long call transcripts; chunk)",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~28",
+   "fp8": "~14",
+   "int4": "~8"
+  },
+  "hf_url": "https://huggingface.co/microsoft/phi-4",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang",
+  "min_gpu_class": {
+   "bf16": "1x A100 40GB/L40S",
+   "int4": "1x 12-16GB"
+  },
+  "throughput_estimate": "No source.",
+  "source_urls": [
+   "https://huggingface.co/microsoft/phi-4",
+   "https://github.com/vectara/hallucination-leaderboard"
+  ],
+  "notes": "Vectara hallucination 3.7% (best in list) but 80.7% answer rate (refuses/skips ~20%). Also Phi-4-reasoning-vision-15B (Mar 2026) exists."
+ },
+ {
+  "user_listed_name": "(suggested extra)",
+  "model": "Nemotron 3 Nano 30B-A3B",
+  "verification_status": "VERIFIED (nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-*)",
+  "developer": "NVIDIA",
+  "country_origin": "USA",
+  "release_date": "2025-12-15",
+  "license": "NVIDIA Nemotron Open Model License",
+  "license_url": "https://www.nvidia.com/en-us/agreements/nvidia-nemotron-open-model-license/",
+  "commercial_use_allowed": true,
+  "license_restrictions": "Permissive commercial; see license",
+  "total_params": "30B (31.6B)",
+  "architecture": "MoE hybrid Mamba-2/Transformer",
+  "active_params": "3.5B",
+  "num_experts": "128 routed + 1 shared, 6 active",
+  "context_window": "1M (256K default)",
+  "native_precision": "BF16 / FP8",
+  "weights_gb": {
+   "bf16": "~63",
+   "fp8": "~32",
+   "int4": "~18"
+  },
+  "hf_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
+  "fine_tuning": "NeMo, HF PEFT, Unsloth",
+  "min_gpu_class": {
+   "bf16": "1x H100/A100 80GB",
+   "fp8": "1x H100 / 48GB"
+  },
+  "throughput_estimate": "Predecessor of Lightning; no source number fetched.",
+  "source_urls": [
+   "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
+   "https://github.com/vectara/hallucination-leaderboard"
+  ],
+  "notes": "Vectara hallucination 9.6%. Superseded by 3.5 Lightning but has more third-party evals."
+ },
+ {
+  "user_listed_name": "(suggested extra)",
+  "model": "Ai2 Olmo 3 32B / 7B (Instruct, Think)",
+  "verification_status": "VERIFIED (allenai/Olmo-3-*); license/context from prior knowledge, not re-fetched",
+  "developer": "Allen Institute for AI (Ai2)",
+  "country_origin": "USA (non-profit)",
+  "release_date": "2025-11-20",
+  "license": "Apache 2.0 (fully open: data, code, checkpoints)",
+  "license_url": "https://huggingface.co/allenai/Olmo-3-1125-32B",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None",
+  "total_params": "32B and 7B",
+  "architecture": "dense",
+  "active_params": "same",
+  "num_experts": null,
+  "context_window": "~65K (unverified)",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "64 (32B) / 14 (7B)",
+   "fp8": "32 / 7",
+   "int4": "~18 / ~4"
+  },
+  "hf_url": "https://huggingface.co/allenai/Olmo-3-1125-32B",
+  "fine_tuning": "Full recipes (open-instruct, TRL, PEFT); best auditability/provenance",
+  "min_gpu_class": {
+   "32B bf16": "1x H100 80GB",
+   "7B bf16": "1x L4 24GB"
+  },
+  "throughput_estimate": "No source.",
+  "source_urls": [
+   "https://allenai.org/olmo",
+   "https://huggingface.co/allenai/Olmo-3-1125-32B"
+  ],
+  "notes": "Best choice if data provenance/audit matters. Not on Vectara."
+ },
+ {
+  "user_listed_name": "(suggested extra)",
+  "model": "Mistral Small 3.2 24B Instruct (2506)",
+  "verification_status": "PARTIALLY VERIFIED - Mistral Small 4 exists but is 119B MoE (not small); 3.2 24B details from prior knowledge, not re-fetched",
+  "developer": "Mistral AI",
+  "country_origin": "France (EU) - non-China, not US; generally acceptable to US firms",
+  "release_date": "2025-06 (3.2)",
+  "license": "Apache 2.0",
+  "license_url": "https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+  "commercial_use_allowed": true,
+  "license_restrictions": "None",
+  "total_params": "24B",
+  "architecture": "dense",
+  "active_params": "24B",
+  "num_experts": null,
+  "context_window": "128K",
+  "native_precision": "BF16",
+  "weights_gb": {
+   "bf16": "~48",
+   "fp8": "~24",
+   "int4": "~13"
+  },
+  "hf_url": "https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+  "fine_tuning": "LoRA/QLoRA/full via HF Transformers+PEFT+TRL; Unsloth, Axolotl, LLaMA-Factory commonly work (verify per-architecture support); serve with vLLM/SGLang",
+  "min_gpu_class": {
+   "bf16": "1x H100/A100 80GB or L40S 48GB (tight)",
+   "int4": "1x 24GB"
+  },
+  "throughput_estimate": "No source.",
+  "source_urls": [
+   "https://mistral.ai/news/mistral-small-4/"
+  ],
+  "notes": "Mistral Small 4 (Mar 2026): 119B MoE, Apache 2.0, 256K - needs multi-GPU/ >=2x H100 at FP8; not an SLM."
+ }
+]

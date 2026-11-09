@@ -1,0 +1,178 @@
+{
+ "accessed": "2026-11-08",
+ "methodology": {
+  "title": "Defensible tokens/s methodology for self-hosted vLLM sizing",
+  "steps": [
+   "1. Measure, don't quote: run `vllm bench serve` (same tool GPUStack/vLLM use) with your real input/output length distribution (e.g. dataset-name random with your mean in/out, or a replay of real prompts) at several --max-concurrency / request-rate points; report output tok/s, TTFT p50/p95, TPOT p95. Pick the highest concurrency that still meets your latency SLO (not the unconstrained peak).",
+   "2. Capacity formula: GPUs = peak_output_tok_s_required / (SLO-constrained output tok_s per GPU x 0.6-0.7 production derate). For offline/batch jobs, use the saturated throughput and GPU-hours = total_tokens / tok_s_per_GPU / 3600.",
+   "3. Roofline sanity check (derived): single-stream decode tok/s ~ memory_bandwidth / bytes_read_per_token (active weights; BF16=2B/param, FP8=1B). Aggregate throughput grows ~linearly with batch until compute- or KV-cache-bound. HBM/GDDR bandwidth (NVIDIA datasheets, from memory, not re-verified this session): H100 SXM 3.35 TB/s, A100-80GB 2.0 TB/s, A100-40GB 1.55 TB/s, RTX PRO 6000 Blackwell ~1.8 TB/s, L4 0.30 TB/s. L4 is ~11x lower bandwidth than H100 and only 24GB, so 8B BF16 (16GB) leaves ~4GB KV; use FP8/AWQ/INT4.",
+   "4. Memory fit: weights + KV cache + activations <= 0.9 x VRAM. KV bytes/token = 2 x layers x kv_heads x head_dim x bytes. 30B-A3B BF16 (~61GB) barely fits on 80GB -> use FP8 (MoE benefits most: weight/expert traffic halves) ; 27-32B dense BF16 (~54-65GB) leaves little KV on 80GB -> FP8 or 2 GPUs.",
+   "5. Report engine/version/precision; FP8 on H100 and FP8 KV cache are the largest legit wins (+44-57% from FP8 KV cache per VESSL; TRT-LLM FP8+chunked-prefill +82% over default vLLM for Qwen3-32B per GPUStack). Prefix caching/speculative decoding depend on workload.",
+   "6. Cross-check against Artificial Analysis only for hosted-API speeds (they do not publish single-GPU vLLM numbers) - not used here."
+  ]
+ },
+ "references": [
+  {
+   "model": "Qwen3-32B (dense)",
+   "class_": "30B dense",
+   "gpu": "1xH100 SXM 80GB",
+   "engine": "vLLM 0.11.0 BF16 default",
+   "workload": "ShareGPT, 1000 prompts, vllm bench serve (max concurrency)",
+   "output_tok_s": 1131.55,
+   "total_tok_s": 2352.82,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/qwen3-32b/h100/",
+   "quality": "primary-ish (vendor lab, reproducible command)",
+   "notes": "TRT-LLM FP8+chunked prefill tuned: 2060.4 out / 4284.68 total tok/s. SGLang 814 out; TRT-LLM default 1280 out."
+  },
+  {
+   "model": "Qwen3-32B (dense)",
+   "class_": "30B dense",
+   "gpu": "1xA100 80GB",
+   "engine": "vLLM 0.11.0 BF16 (--max-model-len 32768)",
+   "workload": "ShareGPT 1000 prompts",
+   "output_tok_s": 832.43,
+   "total_tok_s": 1730.98,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/qwen3-32b/a100/",
+   "quality": "primary-ish",
+   "notes": "A100/H100 ratio ~0.74 for dense 32B here."
+  },
+  {
+   "model": "Qwen3-14B (dense)",
+   "class_": "12-14B dense",
+   "gpu": "1xH100 SXM",
+   "engine": "vLLM BF16 default",
+   "workload": "ShareGPT 1000 prompts",
+   "output_tok_s": 3173.92,
+   "total_tok_s": 6595.66,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/qwen3-14b/h100/",
+   "quality": "primary-ish",
+   "notes": "Use as proxy for Gemma-3-12B / 12B class (slightly faster expected)."
+  },
+  {
+   "model": "Qwen3-14B (dense)",
+   "class_": "12-14B dense",
+   "gpu": "1xA100",
+   "engine": "vLLM BF16 default",
+   "workload": "ShareGPT 1000 prompts",
+   "output_tok_s": 1887.31,
+   "total_tok_s": 3922.41,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/qwen3-14b/a100/",
+   "quality": "primary-ish",
+   "notes": "A100/H100 ratio ~0.59."
+  },
+  {
+   "model": "gpt-oss-20b (MoE 21B total/3.6B active, MXFP4)",
+   "class_": "MoE ~20-30B-A3B proxy",
+   "gpu": "1xH100 SXM",
+   "engine": "vLLM default",
+   "workload": "ShareGPT 1000 prompts",
+   "output_tok_s": 7817.03,
+   "total_tok_s": 16493.75,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/gpt-oss-20b/h100/",
+   "quality": "primary-ish",
+   "notes": "Tuned (--async-scheduling) ShareGPT total 19,128 tok/s; short/medium/long prompt cases total 28-34k tok/s. Best proxy available for 30B-A3B class; Qwen3-30B-A3B has more total params (BF16 61GB) so expect lower, perhaps 4-8k out tok/s on H100 (derived, unverified)."
+  },
+  {
+   "model": "gpt-oss-120b (MoE 117B/5.1B active)",
+   "class_": "large MoE reference",
+   "gpu": "2xH100 (TP=2)",
+   "engine": "vLLM default",
+   "workload": "ShareGPT 1000 prompts",
+   "output_tok_s": 2901.05,
+   "total_tok_s": 6095.37,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/gpt-oss-120b/h100/",
+   "quality": "primary-ish",
+   "notes": "Per-GPU ~1.45k out tok/s."
+  },
+  {
+   "model": "gpt-oss-120b",
+   "class_": "large MoE reference",
+   "gpu": "A100 80GB (TP not captured)",
+   "engine": "vLLM",
+   "workload": "ShareGPT 1000 prompts",
+   "output_tok_s": 2276.4,
+   "total_tok_s": 4768.75,
+   "source_url": "https://docs.gpustack.ai/2.0/performance-lab/gpt-oss-120b/a100/",
+   "quality": "primary-ish",
+   "notes": "GPU count per run not captured from page; check source."
+  },
+  {
+   "model": "Llama-3.1-8B",
+   "class_": "8B dense",
+   "gpu": "1xH100 80GB",
+   "engine": "unspecified (custom script) batch 64, max input 1000",
+   "workload": "custom TPS script",
+   "output_tok_s": 3621.02,
+   "total_tok_s": null,
+   "source_url": "https://docs.valdi.ai/llms/performance/gpu/H100/llama3.1-inference-testing/",
+   "quality": "secondary, 2024, weakly specified",
+   "notes": "Low-confidence."
+  },
+  {
+   "model": "Llama-3.1-8B",
+   "class_": "8B dense",
+   "gpu": "1xH100 80GB",
+   "engine": "vLLM FlashInfer 0.8 gpu util",
+   "workload": "unknown",
+   "output_tok_s": 12500,
+   "total_tok_s": null,
+   "source_url": "https://www.morphllm.com/vllm-benchmarks",
+   "quality": "UNVERIFIED (search-snippet only; page returned 429/blank)",
+   "notes": "Do not rely on it."
+  },
+  {
+   "model": "gpt-oss-20b (MXFP4 Marlin on Ada)",
+   "class_": "MoE proxy / L4",
+   "gpu": "1xL4 24GB",
+   "engine": "vLLM 0.15.1 defaults, structured output",
+   "workload": "single-stream decode",
+   "output_tok_s": 60,
+   "total_tok_s": null,
+   "source_url": "https://devforth.io/insights/self-hosted-gpt-real-response-time-token-throughput-and-cost-on-l4-l40s-and-h100-for-gpt-oss-20b/",
+   "quality": "secondary blog, reproducible setup",
+   "notes": "Decode ~60 tok/s at short ctx (falls to ~45 at 100k+); 8 concurrent users share, aggregate not tabulated. Only ~2.8x concurrency at 131k ctx."
+  },
+  {
+   "model": "Gemma-4-31B LoRA training (for SFT ref)",
+   "class_": "n/a",
+   "gpu": "8xH100/8xA100/8xB200",
+   "engine": "HF FSDP",
+   "workload": "training",
+   "output_tok_s": null,
+   "total_tok_s": null,
+   "source_url": "https://vessl.ai/en/blog/lora-finetuning-cost-a100-h100-b200",
+   "quality": "vendor blog",
+   "notes": "Inference: B200 FP8 >10x A100 BF16, H100 6.5x A100 (partly FP8 vs BF16). FP8 KV cache +44-57% throughput. See sft_refs.json for training numbers."
+  }
+ ],
+ "planning_estimates": [
+  {
+   "model_class": "8B dense",
+   "H100_out_tok_s": "5,000-7,000 (derived: Qwen3-14B 3.2k scaled by ~1.8x params; Valdi 3.6k at batch 64 as low bound)",
+   "A100_80_out_tok_s": "3,000-4,000 (A100/H100 ~0.6-0.74)",
+   "L4_out_tok_s": "300-700 aggregate FP8/AWQ (derived from bandwidth, UNVERIFIED)",
+   "status": "derived"
+  },
+  {
+   "model_class": "12B dense",
+   "H100_out_tok_s": "3,500-4,500",
+   "A100_80_out_tok_s": "2,000-2,700",
+   "L4_out_tok_s": "150-400 (INT4/FP8 required)",
+   "status": "derived from Qwen3-14B measured"
+  },
+  {
+   "model_class": "30B-A3B MoE",
+   "H100_out_tok_s": "4,000-8,000 FP8 (gpt-oss-20b measured 7.8k; Qwen3-30B-A3B larger)",
+   "A100_80_out_tok_s": "2,500-5,000 (A100 has no FP8; BF16 61GB leaves little KV)",
+   "L4_out_tok_s": "not feasible BF16; INT4 ~15GB maybe 150-400",
+   "status": "derived/UNVERIFIED"
+  },
+  {
+   "model_class": "30B dense (Qwen3-32B/Gemma-27B)",
+   "H100_out_tok_s": "1,131 measured BF16 ShareGPT; 2,060 tuned FP8 TRT-LLM",
+   "A100_80_out_tok_s": "832 measured BF16",
+   "L4_out_tok_s": "not feasible single L4 (use 4xL4/g2-standard-48 TP4 INT4)",
+   "status": "measured (Qwen3-32B)"
+  }
+ ]
+}
