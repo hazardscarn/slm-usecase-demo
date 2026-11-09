@@ -856,6 +856,121 @@ for t in ["Cross-check logic: managed providers sell 8B-26B open models at rough
 wsX.freeze_panes = wsX.cell(row=XH + 1, column=2)
 
 # =====================================================================
+# 10c. ACCURACY EXPECTATIONS + EVIDENCE
+# =====================================================================
+ZS = load("accuracy_zeroshot"); FT = load("accuracy_finetune")
+wsE = sheet("Accuracy_Expectations", "Expected Accuracy: Open SLMs vs Closed Flash-tier, and Gain from SFT / Distillation (teacher = Gemini 3.6 Flash)",
+            "PLANNING ESTIMATES derived from published evidence (sheets Acc_Evidence_*) - NOT measured on your transcripts. Blue cells are editable; replace with your own eval results as soon as you have them.", "FF0000")
+widths(wsE, [58, 14, 14, 14, 16, 90])
+put(wsE, 4, 1, "IMPORTANT: no public study covers current models (Gemma 4, Nemotron 3.5, Gemini 3.6) on real energy-retail call transcripts. Ranges below extrapolate from older/adjacent studies. Run an in-house eval on 100-200 human-labelled transcripts before any decision.", font=Font(name=FONT, size=10, bold=True, color="C00000"), bd=False)
+wsE["A6"] = "Inputs (editable)"; wsE["A6"].font = f_bold
+hdr(wsE, 7, ["Parameter", "Value", "", "", "", "Basis"], height=22)
+EI = {}
+def einput(r, key, label, val, fmt, basis):
+    put(wsE, r, 1, label, al=wrap); put(wsE, r, 2, val, fmt=fmt, font=f_in, fill=fill_key); put(wsE, r, 6, basis, al=wrap, font=f_note)
+    EI[key] = f"$B${r}"
+einput(8, "t_ext", "Teacher (Gemini 3.6 Flash, good prompt) field-level extraction accuracy vs human gold", 0.90, PCT, "ASSUMPTION - unknown until you measure. Frontier-class LLMs typically reach ~85-95% field accuracy on well-specified schemas (clinical/receipt studies in Acc_Evidence_FineTune). Everything below scales from this.")
+einput(9, "gap_lo", "Zero-shot gap, open 7-35B vs flash-tier closed - BEST case (pts)", 5, '0.0', "Planning estimate from evidence: LLMStructBench Gemma3-12B 0.72 vs GPT-4o 0.74 (2 pts); StructEval 67 vs 76 (9 pts); LingVarBench call transcripts 0.60-0.61 vs 0.82-0.90 (20-30 pts, old models).")
+einput(10, "gap_hi", "Zero-shot gap - WORST case (pts)", 20, '0.0', "High end = noisy multi-speaker call transcripts with older open models (LingVarBench). Newer 2026 open models (Gemma 4, Qwen3.8, Nemotron 3.5) are likely better but NOT measured in any study found.")
+einput(11, "rec_lo", "Extraction: share of teacher quality recovered after SFT/distillation - LOW", 0.90, PCT, "Published: distilled/SFT students reach ~90-105% of teacher-as-prompted quality in-distribution (UniNER, LoRA Land, clinical JSON extraction, Extract-0).")
+einput(12, "rec_hi", "Extraction: share recovered - HIGH (capped at 100% of gold)", 1.00, PCT, "Students can match/slightly exceed a zero-shot teacher on narrow schemas, but do not exceed human gold labels; capped at 100%.")
+einput(13, "t_sum", "Teacher summary faithfulness (consistency with source)", 0.92, PCT, "PROXY: Vectara HHEM summarization hallucination for Gemini 2.5 Flash = 7.8% -> 92.2% consistent (leaderboard 2026-10-22). Gemini 3.6 Flash not measured.")
+einput(14, "sgap_lo", "Summarization zero-shot faithfulness gap - BEST (pts)", 0, '0.0', "Vectara HHEM: Gemma-3-12B 4.4%, Qwen3-8B 4.8%, Phi-4 3.7% hallucination - equal or better than Gemini 2.5 Flash 7.8% on short documents.")
+einput(15, "sgap_hi", "Summarization zero-shot faithfulness gap - WORST (pts)", 10, '0.0', "FaithJudge (harder mixed tasks): Mistral-Small-24B/Phi-4 17.0%, Llama-3.1-8B 28.4% vs Gemini-2.0-Flash 10.2% (7-18 pts). Long noisy transcripts likely nearer this end.")
+einput(16, "srec_lo", "Summarization: share of teacher quality recovered after distillation - LOW", 0.90, PCT, "Published: distilled students ~100% of teacher on LLM-judge scores (Llama-2-7B from GPT-4: 4.12 vs ~4.1); faithfulness improves with data size.")
+einput(17, "srec_hi", "Summarization: share recovered - HIGH", 1.00, PCT, "Capped at 100% of teacher.")
+# --- Table 1
+r0 = 19
+wsE.cell(row=r0, column=1, value="1. ENTITY EXTRACTION - expected field-level accuracy vs human gold (planning range)").font = f_bold
+hdr(wsE, r0 + 1, ["Scenario", "Low", "High", "Mid", "Gap vs teacher (pts, mid)", "Evidence / reasoning"], height=40)
+rows1 = [
+ ("Gemini 3.6 Flash - few-shot prompt (TEACHER / closed reference)", f"={EI['t_ext']}", f"={EI['t_ext']}", "Assumed reference level (see input). Closed flash-tier models are also not perfect: expect residual errors on ambiguous ASR (account numbers, meter IDs, dates)."),
+ ("Gemma 4 12B - zero-shot, un-tuned (open, dense)", f"=MAX(0,{EI['t_ext']}-{EI['gap_hi']}/100)", f"={EI['t_ext']}-{EI['gap_lo']}/100", "Gap band applied to the teacher. JSON-validity failures (23-39% in LingVarBench for 7-8B models) are the main driver at the low end; constrained decoding removes most of them."),
+ ("Nemotron 3.5 Lightning 30B-A3B - zero-shot, un-tuned (open, MoE ~3B active)", f"=MAX(0,{EI['t_ext']}-{EI['gap_hi']}/100)", f"={EI['t_ext']}-{EI['gap_lo']}/100", "Same band; no public evidence separates 3B-active MoE from 12B dense on extraction (MultiWOZ slot-filling: open 8-32B scored 45-53 vs Claude Opus 4.6 61 - a 'top-tier' closed model, so overstated vs flash)."),
+ ("Gemma 4 12B - AFTER SFT distilled from Gemini 3.6 Flash labels", f"={EI['t_ext']}*{EI['rec_lo']}", f"=MIN(1,{EI['t_ext']}*{EI['rec_hi']})", "Published: +15 to +50 pts over un-tuned student on narrow schemas (LoRA Land CoNLL++ 0.73->0.99; clinical JSON 29-77% -> 87-92%; LingVarBench Llama3.1-8B 0.61->0.87 with 300 transcripts)."),
+ ("Nemotron 3.5 Lightning 30B-A3B - AFTER SFT distilled from Gemini 3.6 Flash labels", f"={EI['t_ext']}*{EI['rec_lo']}", f"=MIN(1,{EI['t_ext']}*{EI['rec_hi']})", "Same recovery band; larger/MoE students tend to land toward the top of the band but this is not measured for Nemotron."),
+]
+for i, (lab, lo, hi, ev) in enumerate(rows1):
+    r = r0 + 2 + i
+    put(wsE, r, 1, lab, font=f_bold, al=wrap); put(wsE, r, 2, lo, fmt=PCT); put(wsE, r, 3, hi, fmt=PCT)
+    put(wsE, r, 4, f"=AVERAGE(B{r}:C{r})", fmt=PCT, fill=fill_sub); put(wsE, r, 5, f"=({EI['t_ext']}-D{r})*100", fmt='0.0'); put(wsE, r, 6, ev, al=wrap, font=f_note)
+    wsE.row_dimensions[r].height = 52
+# --- Table 2
+r1 = r0 + 2 + len(rows1) + 1
+wsE.cell(row=r1, column=1, value="2. CALL SUMMARIZATION - expected faithfulness (share of summary content supported by the transcript)").font = f_bold
+hdr(wsE, r1 + 1, ["Scenario", "Low", "High", "Mid", "Gap vs teacher (pts, mid)", "Evidence / reasoning"], height=40)
+rows2 = [
+ ("Gemini 3.6 Flash (teacher / closed reference)", f"={EI['t_sum']}", f"={EI['t_sum']}", "Proxy from Vectara HHEM (Gemini 2.5 Flash 92.2% consistent)."),
+ ("Gemma 4 12B - zero-shot (open)", f"={EI['t_sum']}-{EI['sgap_hi']}/100", f"={EI['t_sum']}-{EI['sgap_lo']}/100", "Small open models are roughly on par on short-document faithfulness (Vectara) but trail on harder/longer inputs (FaithJudge)."),
+ ("Nemotron 3.5 Lightning - zero-shot (open)", f"={EI['t_sum']}-{EI['sgap_hi']}/100", f"={EI['t_sum']}-{EI['sgap_lo']}/100", "Nemotron-3-Nano (predecessor) scored 9.6% hallucination on Vectara (weaker than Gemma/Qwen/Phi-4); Lightning not on leaderboard."),
+ ("Either model - AFTER distillation from Gemini 3.6 Flash summaries", f"={EI['t_sum']}*{EI['srec_lo']}", f"=MIN(1,{EI['t_sum']}*{EI['srec_hi']})", "Published: ~100% of teacher on LLM-judge scores with 1K-10K examples; contrastive/faithfulness-aware distillation raised AlignScore 0.82->0.91 (ROUGE can fall). SFT on facts the model lacks can INCREASE hallucination."),
+]
+for i, (lab, lo, hi, ev) in enumerate(rows2):
+    r = r1 + 2 + i
+    put(wsE, r, 1, lab, font=f_bold, al=wrap); put(wsE, r, 2, lo, fmt=PCT); put(wsE, r, 3, hi, fmt=PCT)
+    put(wsE, r, 4, f"=AVERAGE(B{r}:C{r})", fmt=PCT, fill=fill_sub); put(wsE, r, 5, f"=({EI['t_sum']}-D{r})*100", fmt='0.0'); put(wsE, r, 6, ev, al=wrap, font=f_note)
+    wsE.row_dimensions[r].height = 46
+# --- Table 3 text
+r2 = r1 + 2 + len(rows2) + 1
+wsE.cell(row=r2, column=1, value="3. OUTPUT FORMAT (valid JSON) - evidence, not a point estimate").font = f_bold
+t3 = ["Un-tuned open 7-8B models (Llama3.1-8B, Qwen2.5-7B) had 23-39% JSON decode errors in LingVarBench (2025, call transcripts) vs ~0% for GPT-4o / Gemini-1.5-Flash. Newer 2026 models are likely much better - measure it.",
+      "With constrained decoding (vLLM/xgrammar/guidance), even a 1B model reached 96% schema coverage on JSONSchemaBench - better than OpenAI/Gemini API structured outputs. Format validity should be ~100% after SFT + constrained decoding, so remaining errors are VALUE errors, not format errors.",
+      "IFEval (instruction/format following): Gemma 3 12B 88.9 vs GPT-4o 88.6 - no gap on general format-following."]
+for i, t in enumerate(t3): wsE.cell(row=r2 + 1 + i, column=1, value="• " + t).font = f_note
+# --- Table 4 teacher labeling cost
+r3 = r2 + 1 + len(t3) + 1
+wsE.cell(row=r3, column=1, value="4. COST OF DISTILLATION LABELS - Gemini 3.6 Flash as teacher (1 call per transcript, same token profile as Assumptions)").font = f_bold
+hdr(wsE, r3 + 1, ["Labelling scenario", "Transcripts labelled", "$ per call (Batch / BigQuery)", "Labelling cost - Batch / BigQuery $", "Labelling cost - Standard API $", "Note"], height=48)
+pr36 = prow["Gemini 3.6 Flash"]
+sc = [("Pilot / minimum (narrow schema plateaus ~100-500 examples)", 500, "Evidence: human-level at 43-100 reports (clinical); LingVarBench 300 transcripts."),
+      ("Comfortable extraction set", 5000, "Evidence: 1-5K comfortable; diminishing returns after (NuNER 1K->1M = +4 F1)."),
+      ("Summarization set", 10000, "Evidence: summarization needs ~1K-10K examples."),
+      ("Full planned SFT set (user plan)", None, "Assumptions: SFT samples. Far more than evidence says is needed - consider labelling 5K first, then extend only if the learning curve is still rising.")]
+for i, (lab, n_, note) in enumerate(sc):
+    r = r3 + 2 + i
+    put(wsE, r, 1, lab, al=wrap)
+    put(wsE, r, 2, n_ if n_ else f"={A['sft_n']}", fmt=NUM, font=f_in if n_ else f_link)
+    put(wsE, r, 3, f"=({A['tot_in']}*Closed_Pricing!$Y${pr36}+{A['out_closed']}*Closed_Pricing!$Z${pr36})/1000000", fmt=USD4)
+    put(wsE, r, 4, f"=B{r}*C{r}", fmt=USD0, font=f_bold)
+    put(wsE, r, 5, f"=B{r}*({A['tot_in']}*Closed_Pricing!$V${pr36}+{A['out_closed']}*Closed_Pricing!$W${pr36})/1000000", fmt=USD0)
+    put(wsE, r, 6, note, al=wrap, font=f_note)
+    wsE.row_dimensions[r].height = 32
+r4 = r3 + 2 + len(sc) + 1
+wsE.cell(row=r4, column=1, value="Labelling cost uses the price basis on Assumptions (intro price now; doubles from 2027-01-01). Cost is one-time and small versus the GPU SFT cost; human-labelled gold set (100-200 transcripts) is separate and the real quality lever.").font = f_note
+# --- Table 5 recipe
+r5 = r4 + 2
+wsE.cell(row=r5, column=1, value="5. RECOMMENDED DISTILLATION RECIPE & RISKS").font = f_bold
+rec = ["1) Hold out 100-200 real transcripts (mix residential/C&I), labelled by humans = GOLD. Never train on them. This is the only way to know the true teacher accuracy and the student's accuracy.",
+       "2) Teacher labelling: run Gemini 3.6 Flash (batch/BigQuery) with schema + few-shot examples on 1-5K transcripts; validate labels against gold; filter/correct teacher errors (teacher-label noise sets the student's ceiling). LLM labels are high-precision / low-recall for entities - include negative examples (UniNER without negative sampling: 31.5 vs 53.4 F1).",
+       "3) SFT (LoRA) Gemma 4 12B and Nemotron 3.5 Lightning on the labelled set with constrained JSON decoding at inference; track field-level F1, exact match per field, JSON validity, and hallucinated-entity rate on GOLD. Plot a learning curve (500 / 1K / 5K) before buying more labels.",
+       "4) Summarization: distil with faithfulness-aware filtering (drop teacher summaries that fail a groundedness check); evaluate with an LLM judge + human spot-check, not ROUGE alone.",
+       "5) Risks: student cannot beat the teacher's systematic errors; SFT on facts the base lacks can raise hallucination; adapters trained on one domain can hurt another; ASR noise shifts over time (monitor drift); PII in training data (keep inside GCP project/VPC).",
+       "6) LEGAL: check the Gemini / Vertex AI terms before using model outputs to train another model - several provider terms restrict using outputs to develop competing models. Have legal confirm that internal-use distillation is permitted (not verified here).",
+       "7) Decision rule: adopt the SLM per field/task when student >= ~95% of teacher on GOLD with 0 critical-field regressions; route low-confidence cases to the closed model (hybrid) to cap risk."]
+for i, t in enumerate(rec):
+    c = wsE.cell(row=r5 + 1 + i, column=1, value=t); c.font = f_norm
+wsE.freeze_panes = "A6"
+
+def evidence_sheet(name, title, hdrs, rows, widths_, tab):
+    ws = sheet(name, title, "Collected by research agents on 2026-11-08 from search results / paper pages. Many figures come from summaries and snippets - VERIFY against the source before citing externally.", tab)
+    hdr(ws, 4, hdrs, height=36); widths(ws, widths_)
+    for i, rec_ in enumerate(rows):
+        r = 5 + i
+        for j, v in enumerate(rec_):
+            if j == len(rec_) - 2: url_cell(ws, r, 1 + j, str(v))
+            else: put(ws, r, 1 + j, "" if v is None else str(v), al=wrap)
+    ws.freeze_panes = "A5"; ws.auto_filter.ref = f"A4:{L(len(hdrs))}{4+len(rows)}"
+    return ws
+evidence_sheet("Acc_Evidence_ZeroShot", "Evidence: Open vs Closed LLMs, zero-shot / as-published (extraction, slot-filling, summarization)",
+    ["Model", "Task", "Benchmark", "Metric", "Score", "Setting", "Year", "Source URL", "Note"],
+    [[z.get("model"), z.get("task"), z.get("benchmark"), z.get("metric"), z.get("score"), z.get("setting"), z.get("year"), z.get("source_url"), z.get("note")] for z in ZS],
+    [30, 22, 34, 24, 28, 22, 7, 55, 70], "FF0000")
+evidence_sheet("Acc_Evidence_FineTune", "Evidence: Accuracy gain from SFT / distillation of small models",
+    ["Student", "Teacher / labels", "Task", "Metric", "Before", "After", "Teacher score", "Train samples", "Setting", "Year", "Source URL", "Note"],
+    [[f.get("student"), f.get("teacher"), f.get("task"), f.get("metric"), f.get("before"), f.get("after"), f.get("teacher_score"), f.get("n_train"), f.get("setting"), f.get("year"), f.get("source_url"), f.get("note")] for f in FT],
+    [30, 24, 30, 22, 14, 18, 16, 14, 22, 7, 55, 70], "FF0000")
+
+# =====================================================================
 # 11. DEPLOYMENT OPTIONS
 # =====================================================================
 wsO = sheet("Deployment_Options", "GCP vs Databricks - Options to Host & Fine-tune the SLMs On-Demand",
@@ -951,6 +1066,7 @@ rows0 = [
  ("  Deployment_Options", "GCP vs Databricks options for SFT and serving, pros/cons, prices."),
  ("  Combined_Compare", "START HERE: one table + chart comparing every closed option (Standard, Batch, BigQuery) with every SLM, daily cost at 1K-15K calls, monthly/annual, one-time SFT, Year-1 total and break-even."),
  ("  Focus_Compare", "Nemotron 3.5 Lightning + Gemma 4 12B vs Flash-tier-and-above closed models (Gemini 3.5+, Claude Sonnet/Opus, gpt-6 luna/sol/astra), with stress test and managed-API cross-check."),
+ ("  Accuracy_Expectations", "Expected accuracy ranges: open SLM zero-shot vs closed flash-tier vs after SFT/distillation from Gemini 3.6 Flash (extraction + summarization), label cost, recipe, risks. Evidence on Acc_Evidence_* sheets."),
  ("  SLM_Serving_Fit", "How long a batch run takes per model (prefill + batched decode throughput), which GPU it fits on (incl. L4 for small models) and cost per run at the reference volume."),
  ("  SLM_Daily_Cost", "Daily cost 1K..15K calls: Block A same-machine (1xH100), Block B cheapest feasible GPU."),
  ("  SFT_Cost", "One-time fine-tuning cost per model = GPUs x 12h / 24h x H100 $/h (with token-throughput cross-check); Vertex managed-SFT reference."),
@@ -966,8 +1082,8 @@ for i, (a, b) in enumerate(rows0):
     ws0.row_dimensions[r].height = max(16, 15 * (len(b) // 135 + 1))
 wb.move_sheet("README", offset=-(len(wb.sheetnames) - 1))
 order = ["README", "Assumptions", "Closed_Pricing", "Closed_Std", "Closed_Batch", "Closed_BigQuery", "SLM_Models", "SLM_Benchmarks", "GPU_Pricing", "Deployment_Options",
-         "SLM_Serving_Fit", "SLM_Daily_Cost", "SFT_Cost", "GPU_Pricing_Raw", "Sources"]
-order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare")
+         "SLM_Serving_Fit", "SLM_Daily_Cost", "SFT_Cost", "Acc_Evidence_ZeroShot", "Acc_Evidence_FineTune", "GPU_Pricing_Raw", "Sources"]
+order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare"); order.insert(3, "Accuracy_Expectations")
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
     for rw in ws.iter_rows():
