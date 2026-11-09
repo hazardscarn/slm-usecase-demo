@@ -139,7 +139,7 @@ add("bq_tib", "BigQuery on-demand analysis price", 6.25, "$/TiB", "https://cloud
 sec("4. SLM hosting & throughput assumptions")
 add("host", "GPU hosting price option", "GCP On-demand", "list", "Choose: GCP On-demand (per-second GCE VM) | GCP Spot | GCP 1-yr CUD | GCP 3-yr CUD | GCP Cloud Run GPU (per-second; L4 and RTX PRO 6000 only) | Databricks serving (DBU). Drives every SLM cost sheet. All are billed ONLY while a run is executing.", key_lever=True)
 add("dbu", "Databricks $/DBU for GPU Model Serving", 0.07, "$/DBU", "UNVERIFIED - third-party (dbuwatch.com) for GCP US regions; official Databricks tiles are JS-rendered. Confirm with your Databricks account team.", fmt='$0.000')
-add("prec", "Serving weight precision used for GPU-fit check", "FP8", "list", "BF16 | FP8 | INT4. FP8 is the production default on H100/L4/RTX PRO 6000 (A100 lacks native FP8 - treat as approximate). gpt-oss-20b uses its native MXFP4 size under 'FP8'.", key_lever=True)
+add("prec", "Serving weight precision used for GPU-fit check", "FP8", "list", "BF16 | FP8 | INT4. FP8 is the production default on FP8-capable GPUs (L4, RTX PRO 6000, H100). A100 (Ampere) has NO native FP8, so on A100 the fit check automatically falls back to BF16 weights (~2x memory). gpt-oss-20b uses its native MXFP4 size under 'FP8' (A100 dequantises to BF16).", key_lever=True)
 add("fit", "Max share of VRAM usable for weights", 0.80, "%", "ASSUMPTION - remainder reserved for KV-cache, activations, CUDA graphs.", fmt=PCT)
 add("prefill_tf", "Effective prefill compute, 1xH100 (FP8)", 400, "TFLOPs", "ASSUMPTION - H100 SXM FP8 dense peak is 1,979 TFLOPS (NVIDIA datasheet); ~20% sustained in vLLM prefill = ~400. Prefill tok/s on H100 = TFLOPs / (2 x active params). Other GPUs scaled by 'Throughput vs H100' on GPU_Pricing. Replace with `vllm bench serve` results.", fmt=NUM, key_lever=True)
 add("util", "Batch-run efficiency derate", 0.75, "%", "ASSUMPTION - real runs achieve ~75% of benchmark throughput (batch tail, uneven lengths). Methodology range 0.6-0.8.", fmt=PCT)
@@ -153,12 +153,13 @@ sec("5. One-time SFT (fine-tuning) assumptions")
 add("sft_h_low", "SFT wall-clock hours - low scenario", 12, "hours", "User guidance: SFT is roughly 12 or 24 hours of GPU time.", fmt=NUM, key_lever=True)
 add("sft_h_high", "SFT wall-clock hours - high scenario", 24, "hours", "User guidance: 12 or 24 hours.", fmt=NUM, key_lever=True)
 add("sft_sel", "SFT scenario used in Combined_Compare (hours)", 24, "hours", "Pick 12 or 24 (dropdown). GPUs per model are sized on SFT_Cost so that GPUs x 24h covers the estimated LoRA GPU-hours.", fmt=NUM)
+add("a100_slow", "SFT slowdown on A100 80GB vs H100", 2.2, "x", "VESSL measured ~2.0x (Gemma-4-31B LoRA); NVIDIA/other sources cite up to 2.5x. Used for the A100 comparison columns on SFT_Cost and H100_vs_A100.", fmt='0.0')
 add("sft_n", "SFT training samples (for GPU sizing cross-check)", 50000, "samples", "User requirement: ~50K samples, one-time.", fmt=NUM)
 add("sft_tok", "Avg tokens per SFT sample", 3000, "tokens", "ASSUMPTION - matches the 3K-token call profile.", fmt=NUM)
 add("sft_ep", "Training epochs (cross-check)", 3, "epochs", "Typical 2-3 for LoRA SFT.", fmt=NUM)
 
 sec("6. Comparison baseline")
-add("base", "Closed model used as baseline on Combined_Compare sheet", "Gemini 3.1 Flash-Lite", "list", "Pick any model from the Closed_Pricing sheet (dropdown). The 'cheapest closed model' is computed automatically as well.", key_lever=True)
+add("base", "Closed model used as baseline on Combined_Compare sheet", "Gemini 3.6 Flash", "list", "Pick any model from the Closed_Pricing sheet (dropdown). The 'cheapest closed model' is computed automatically as well.", key_lever=True)
 
 # --- task table
 sec("7. LLM tasks run per call (every call is processed by each enabled task)")
@@ -205,10 +206,10 @@ PH = ["Provider", "Model", "Model ID", "Status (as of 2026-11-08)", "Input $/1M"
       "Batch input $/1M", "Batch output $/1M", "Input $/1M (post-promo)", "Output $/1M (post-promo)", "Cache read $/1M (post-promo)",
       "Batch input $/1M (post-promo)", "Batch output $/1M (post-promo)", "Cache write (5-min) $/1M", "Batch API supported?", "Via BigQuery batch (50%)?",
       "Context window", "Notes / caveats", "Source URL(s)", "Accessed",
-      "EFFECTIVE input", "EFFECTIVE output", "EFFECTIVE cache read", "EFFECTIVE batch input", "EFFECTIVE batch output"]
+      "EFFECTIVE input", "EFFECTIVE output", "EFFECTIVE cache read", "EFFECTIVE batch input", "EFFECTIVE batch output", "Comparison tier (Flash-level+ used for headline)"]
 P0 = 5
 hdr(wsP, P0, PH, height=56)
-widths(wsP, [11, 24, 24, 34, 10, 10, 11, 10, 10, 11, 11, 11, 11, 11, 11, 12, 12, 11, 70, 60, 11, 11, 11, 11, 11, 11])
+widths(wsP, [11, 24, 24, 34, 10, 10, 11, 10, 10, 11, 11, 11, 11, 11, 11, 12, 12, 11, 70, 60, 11, 11, 11, 11, 11, 11, 16])
 
 GEM = [  # name,id,status,in,out,cache,bin,bout,(post in,out,cache,bin,bout)|None, batch_supported, ctx, note, src
  ("Gemini 2.5 Flash-Lite", "gemini-2.5-flash-lite", "GA (older generation)", .10, .40, .01, .05, .20, None, "1M", "Cache storage $1.00/1M tok/hr. Vertex batch audio price differs from Gemini API ($0.05 vs $0.15) - text used here."),
@@ -292,7 +293,15 @@ notes = [
 for i, n in enumerate(notes):
     c = wsP.cell(row=r + 2 + i, column=1, value="• " + n); c.font = f_note
 wsP.freeze_panes = wsP.cell(row=P0 + 1, column=3)
-wsP.auto_filter.ref = f"A{P0}:{L(26)}{P_last}"
+TIER_FLASH = {"Gemini 3.5 Flash", "Gemini 3.6 Flash", "Gemini 3.7 Flash", "Gemini 3.8 Flash", "Claude Sonnet 4.5", "Claude Sonnet 4.6", "Claude Sonnet 5", "Claude Sonnet 5.5",
+              "gpt-5.4-mini", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-6-luna", "gpt-6.1-terra"}
+TIER_LITE = {"Gemini 2.5 Flash-Lite", "Gemini 3.1 Flash-Lite", "Gemini 3.5 Flash-Lite", "Claude Haiku 4.5", "Claude Haiku 5.5", "gpt-5-nano", "gpt-5.4-nano"}
+TIER_OLD = {"Gemini 2.5 Flash", "Gemini 2.5 Pro", "Gemini 3 Flash Preview", "gpt-5", "gpt-5-mini", "gpt-5-pro", "gpt-5.1", "gpt-5.2", "gpt-5.2-pro", "gpt-5.3-codex"}
+for _p, _m, _r in rows_meta:
+    t_ = "Flash-level" if _m in TIER_FLASH else "Lite (excluded)" if _m in TIER_LITE else "Older (excluded)" if _m in TIER_OLD else "Pro-level"
+    put(wsP, _r, 27, t_, font=f_in)
+put(wsP, P_last + 10, 1, "Comparison tier (editable): 'Flash-level' = same class as Gemini 3.6 Flash (Gemini 3.5-3.8 Flash, Claude Sonnet, OpenAI mini/terra/luna class); 'Pro-level' = larger/more expensive models; 'Lite' and 'Older' are EXCLUDED from the headline comparison (e.g. Gemini 2.5 Flash-Lite, gpt-5-nano, Claude Haiku).", font=f_note, bd=False)
+wsP.auto_filter.ref = f"A{P0}:{L(27)}{P_last}"
 dv = DataValidation(type="list", formula1=f"=Closed_Pricing!$B${P0+1}:$B${P_last}"); wsA.add_data_validation(dv); dv.add(A["base"].split("!")[1].replace("$", ""))
 
 # =====================================================================
@@ -301,7 +310,7 @@ dv = DataValidation(type="list", formula1=f"=Closed_Pricing!$B${P0+1}:$B${P_last
 NV = 15
 def cost_sheet(name, title, sub, mode, tab):
     ws = sheet(name, title, sub, tab)
-    heads = ["Provider", "Model", "Status", "$ per call", "$ per 1K calls"] + [None] * NV + ["Monthly @ ref volume", "Annual @ ref volume", "Rank (cheapest=1)", "Flag", "Monthly @ ref (excl. deprecated)"]
+    heads = ["Provider", "Model", "Status", "$ per call", "$ per 1K calls"] + [None] * NV + ["Monthly @ ref volume", "Annual @ ref volume", "Rank (cheapest=1)", "Flag", "Monthly @ ref (excl. deprecated)", "Monthly @ ref (Flash-level+ only, not deprecated)"]
     hdr(ws, 5, heads, height=44)
     # volume header: row 5 cols F..T, numeric formulas
     for k in range(NV):
@@ -309,7 +318,7 @@ def cost_sheet(name, title, sub, mode, tab):
         c.value = f"={A['vol_step']}" if k == 0 else f"={L(5 + k)}5+{A['vol_step']}"
         c.number_format = '#,##0" calls/day"'; c.font = f_hdr
     ws["F4"] = "Daily cost (USD) at calls/day  →"; ws["F4"].font = f_bold
-    widths(ws, [16, 26, 30, 12, 12] + [11] * NV + [15, 15, 11, 38, 16])
+    widths(ws, [16, 26, 30, 12, 12] + [11] * NV + [15, 15, 11, 38, 16, 18])
     i = 6
     out_rows = []
     for prov, mdl, pr in rows_meta:
@@ -338,6 +347,7 @@ def cost_sheet(name, title, sub, mode, tab):
         out_rows.append(i)
         put(ws, i, 9 + NV, flag, font=f_note)
         put(ws, i, 10 + NV, f'=IF(AND(ISNUMBER({L(6+NV)}{i}),LEFT({L(9+NV)}{i},10)<>"Deprecated"),{L(6+NV)}{i},"n/a")', fmt=USD0)
+        put(ws, i, 11 + NV, f'=IF(AND(ISNUMBER({L(10+NV)}{i}),OR(Closed_Pricing!$AA${pr}="Flash-level",Closed_Pricing!$AA${pr}="Pro-level")),{L(10+NV)}{i},"n/a")', fmt=USD0)
         i += 1
     last = i - 1
     for rr in out_rows:
@@ -349,7 +359,7 @@ def cost_sheet(name, title, sub, mode, tab):
     put(ws, last + 3, 4, f"=MIN($D$6:$D${last})", fmt=USD4, bd=False, font=f_bold)
     ws.conditional_formatting.add(f"F6:{L(5+NV)}{last}", ColorScaleRule(start_type="min", start_color="C6EFCE", mid_type="percentile", mid_value=50, mid_color="FFFFFF", end_type="max", end_color="F8CBAD"))
     ws.freeze_panes = "D6"
-    ws.auto_filter.ref = f"A5:{L(10+NV)}{last}"
+    ws.auto_filter.ref = f"A5:{L(11+NV)}{last}"
     return ws, last
 
 wsS, S_last = cost_sheet("Closed_Std", "Closed Models - Standard (real-time) API Cost",
@@ -451,12 +461,12 @@ wsG = sheet("GPU_Pricing", "GPU Catalog & Hosting Prices (per GPU-hour, us-centr
             f"Sources: https://cloud.google.com/products/compute/pricing/accelerator-optimized (GCE on-demand/Spot/CUD) and https://www.databricks.com/product/pricing/model-serving (DBU/hour) accessed {ACCESSED}. Full 235-record dump on 'GPU_Pricing_Raw'.", "ED7D31")
 GH = ["GPU", "VRAM (GB)", "GCP instance (bundled vCPU/RAM)", "GPUs per instance", "Instance $/h On-demand", "Instance $/h Spot", "Instance $/h 1-yr CUD", "Instance $/h 3-yr CUD",
       "GCP On-demand", "GCP Spot", "GCP 1-yr CUD", "GCP 3-yr CUD", "Databricks DBU/h per GPU", "Databricks serving (DBU)", "SELECTED $/GPU-h (Assumptions)", "Throughput vs H100", "Databricks SKU used / notes", "Source",
-      "Cloud Run GPU $/second", "Cloud Run vCPUs", "Cloud Run GiB RAM", "GCP Cloud Run GPU (per-second) $/h"]
+      "Cloud Run GPU $/second", "Cloud Run vCPUs", "Cloud Run GiB RAM", "GCP Cloud Run GPU (per-second) $/h", "Native FP8 weights? (1/0)"]
 hdr(wsG, 5, GH, height=56)
-widths(wsG, [20, 9, 22, 9, 12, 12, 12, 12, 11, 11, 11, 11, 12, 13, 14, 11, 60, 60, 13, 9, 9, 14])
+widths(wsG, [20, 9, 22, 9, 12, 12, 12, 12, 11, 11, 11, 11, 12, 13, 14, 11, 60, 60, 13, 9, 9, 14, 12])
 GPUS = [
     ("L4 24GB", 24, "g2-standard-4", 1, 0.706832276, 0.423016, 0.445304335, 0.318074524, 20.0, 0.08, "Databricks has no L4 SKU: priced as A10G x1 (20 DBU/h), same 24GB class. Throughput ~0.08x H100 is a bandwidth-ratio estimate (0.3 vs 3.35 TB/s) - UNVERIFIED."),
-    ("A100 80GB", 80, "a2-ultragpu-1g", 1, 5.06879789, 2.976774795, 4.199690411, 3.499997559, 628 / 8, 0.65, "Databricks A100-80GB is sold as x8 only (628 DBU/h) -> /8 per GPU. Throughput 0.59-0.73x H100 measured (Qwen3-14B/32B, GPUStack)."),
+    ("A100 80GB", 80, "a2-ultragpu-1g", 1, 5.06879789, 2.976774795, 4.199690411, 3.499997559, 628 / 8, 0.55, "Databricks A100-80GB is sold as x8 only (628 DBU/h) -> /8 per GPU. NO native FP8 (Ampere) -> serves BF16. Throughput 0.55x of an FP8 H100: measured 0.59-0.73x vs BF16 H100 (Qwen3-14B/32B, GPUStack) and H100 FP8 adds ~1.3-1.8x on top."),
     ("RTX PRO 6000 96GB", 96, "g4-standard-48", 1, 4.49993, 1.6808, 3.105, 1.97945, 80.0, 0.55, "Databricks RTX PRO 6000 x1 = 80 DBU/h. Throughput 0.55x ASSUMED from memory-bandwidth ratio (~1.8 vs 3.35 TB/s) - UNVERIFIED. g4-standard-48 includes 48 vCPUs."),
     ("H100 80GB", 80, "a3-highgpu-8g", 8, 88.490000119, 52.700460712, 61.383674231, 38.864383195, 100.0, 1.0, "Reference machine. Databricks H100 x1 = 100 DBU/h. Per-GPU = 8-GPU instance / 8. Spot can be pre-empted (risky for long SFT)."),
 ]
@@ -481,6 +491,7 @@ for i, g in enumerate(GPUS):
     else:
         for cc in (19, 20, 21): put(wsG, r, cc, "-")
         put(wsG, r, 22, "n/a")
+    put(wsG, r, 23, 0 if g[0] == 'A100 80GB' else 1, font=f_in)
     wsG.row_dimensions[r].height = 52
 G_last = G0 + len(GPUS) - 1
 r = G_last + 2
@@ -510,12 +521,12 @@ wsR.freeze_panes = "A5"; wsR.auto_filter.ref = f"A4:M{4+len(gpu_raw)}"
 wsF = sheet("SLM_Serving_Fit", "SLM Batch Run - Time & Cost per GPU at Reference Volume",
             "Run time = calls x (input tokens / prefill tok/s + output tokens / batched decode tok/s) / efficiency. Cost = (run time + cold start) x $/GPU-h, billed ONLY while the on-demand instance runs. Green = link to other sheet.", "7030A0")
 GN = [g[0] for g in GPUS]
-FH = ["Model", "Total params (B)", "Active params (B)", "Serving weights GB (chosen precision)", "Decode tok/s on H100 (batched)", "Prefill tok/s on H100 (= TFLOPs / 2 x active params)",
+FH = ["Model", "Total params (B)", "Active params (B)", "Serving weights GB (chosen precision; A100 uses BF16 - no FP8)", "Decode tok/s on H100 (batched)", "Prefill tok/s on H100 (= TFLOPs / 2 x active params)",
       "GPU-seconds per call on H100 (ideal)", "H100 minutes per 1K calls (incl. efficiency derate)"] + \
      [f"Fits {g}?" for g in GN] + [f"$/day @ ref vol: {g}" for g in GN] + \
-     ["Cheapest feasible $/day", "Cheapest feasible GPU", "H100 $/day (reference machine)", "H100 / cheapest", "Always-on 24h $/day (cheapest GPU) - for comparison only"]
+     ["Cheapest feasible $/day", "Cheapest feasible GPU", "H100 $/day (reference machine)", "H100 / cheapest", "Always-on 24h $/day (cheapest GPU) - for comparison only", "H100 verdict"]
 hdr(wsF, 5, FH, height=84)
-widths(wsF, [30, 9, 9, 13, 12, 14, 12, 13] + [10] * 4 + [13] * 4 + [14, 18, 14, 10, 20])
+widths(wsF, [30, 9, 9, 13, 12, 14, 12, 13] + [10] * 4 + [13] * 4 + [14, 18, 14, 10, 20, 46])
 F0 = 6
 CF1, CF2 = 13, 16       # cost columns M..P
 for i in range(SLM_N):
@@ -529,13 +540,15 @@ for i in range(SLM_N):
     put(wsF, r, 8, f"=G{r}*1000/{A['util']}/60", fmt='0.0', fill=fill_sub)
     for k, g in enumerate(GN):
         gr = GR[g]
-        put(wsF, r, 9 + k, f"=IF($D{r}<=GPU_Pricing!$B${gr}*{A['fit']},1,0)", fmt='0')
+        wexp = f'IF(AND({A["prec"]}="FP8",GPU_Pricing!$W${gr}=0),SLM_Models!$P{mr},$D{r})'
+        put(wsF, r, 9 + k, f"=IF({wexp}<=GPU_Pricing!$B${gr}*{A['fit']},1,0)", fmt='0')
         put(wsF, r, CF1 + k, f'=IF(AND({L(9+k)}{r}=1,ISNUMBER(GPU_Pricing!$O${gr})),({A["ref_vol"]}*$G{r}/GPU_Pricing!$P${gr}/{A["util"]}/3600+{A["runs_day"]}*{A["cold_min"]}/60)*GPU_Pricing!$O${gr},"n/a")', fmt=USD)
     put(wsF, r, 17, f'=IF(COUNT(M{r}:P{r})=0,"n/a",MIN(M{r}:P{r}))', fmt=USD, fill=fill_sub, font=f_bold)
     put(wsF, r, 18, f'=IF(ISNUMBER(Q{r}),SUBSTITUTE(INDEX($M$5:$P$5,MATCH(Q{r},M{r}:P{r},0)),"$/day @ ref vol: ",""),"No single-GPU fit / price n/a")', al=wrap)
     put(wsF, r, 19, f'=IF(L{r}=1,P{r},"n/a")', fmt=USD)
     put(wsF, r, 20, f'=IF(AND(ISNUMBER(S{r}),ISNUMBER(Q{r})),S{r}/Q{r},"")', fmt='0.0"x"')
     put(wsF, r, 21, f'=IF(ISNUMBER(Q{r}),24*INDEX(GPU_Pricing!$O${G0}:$O${G_last},MATCH(R{r},GPU_Pricing!$A${G0}:$A${G_last},0))*MAX(1,ROUNDUP({A["ref_vol"]}*G{r}/INDEX(GPU_Pricing!$P${G0}:$P${G_last},MATCH(R{r},GPU_Pricing!$A${G0}:$A${G_last},0))/{A["util"]}/3600/24,0)),"n/a")', fmt=USD)
+    put(wsF, r, 22, f'=IF(L{r}=0,"H100 does not fit",IF(SUM(I{r}:K{r})=0,"H100 needed (no other GPU fits)",IF(R{r}="H100 80GB","H100 is the cheapest feasible","H100 optional: "&TEXT(S{r}/Q{r}-1,"0%")&" more than "&R{r}&"; ~"&TEXT(1/(INDEX(GPU_Pricing!$P${G0}:$P${G_last},MATCH(R{r},GPU_Pricing!$A${G0}:$A${G_last},0))),"0.0")&"x faster")))', al=wrap)
 F_last = F0 + SLM_N - 1
 put(wsF, F_last + 2, 1, "Method: prefill (reading the 3K-token transcript) is compute-bound and fast; decode (writing ~500 tokens) is memory-bound and batched across many calls at once. GPU time for N calls = N x (input / prefill tok/s + output / decode tok/s) / derate. The instance is started for the run, billed per second, then shut down (Cloud Run GPU / GCE job / Databricks job) - so cost scales with run time, not with 24h x 30 days. Fit check = weights <= usable VRAM share (KV cache not separately sized). 'Always-on 24h' is shown only to illustrate why on-demand matters.", font=f_note, bd=False)
 wsF.freeze_panes = "B6"
@@ -595,9 +608,9 @@ wsT = sheet("SFT_Cost", "One-time Supervised Fine-Tuning (SFT) Cost per Model - 
             "Cost = H100 GPUs x wall-clock hours x $/GPU-h (GCP H100, per-GPU = a3-highgpu-8g / 8). GPUs per model are sized so GPUs x 24h covers the estimated LoRA GPU-hours (cross-check from token throughput; +/-50%, validate with a 100-step pilot).", "C00000")
 TH = ["Model", "Total params (B)", "LoRA tok/s per H100 (est.)", "Training tokens (M) = samples x tokens x epochs", "Est. LoRA GPU-hours needed (cross-check)", "H100 GPUs used (sized for high scenario)",
       "SFT cost - LOW scenario (12h) $ On-demand", "SFT cost - HIGH scenario (24h) $ On-demand", "SFT cost - SELECTED hours $ On-demand", "SELECTED hours $ on Spot (pre-emptible)", "SELECTED hours $ on 3-yr CUD",
-      "Share of est. GPU-hours covered by LOW scenario", "Basis"]
+      "Share of est. GPU-hours covered by LOW scenario", "Basis", "Same job on A100 80GB: GPUs for 24h window", "Same job on A100 80GB: cost (selected hours basis) $"]
 hdr(wsT, 5, TH, height=72)
-widths(wsT, [30, 9, 13, 14, 14, 12, 15, 15, 15, 15, 15, 14, 60])
+widths(wsT, [30, 9, 13, 14, 14, 12, 15, 15, 15, 15, 15, 14, 60, 16, 18])
 T0 = 6
 hr = GR["H100 80GB"]
 tokens_M = f"{A['sft_n']}*{A['sft_tok']}*{A['sft_ep']}/1000000"
@@ -615,6 +628,8 @@ for i in range(SLM_N):
     put(wsT, r, 11, f"=F{r}*{A['sft_sel']}*GPU_Pricing!$L${hr}", fmt=USD0)
     put(wsT, r, 12, f"=MIN(1,F{r}*{A['sft_h_low']}/E{r})", fmt='0%')
     put(wsT, r, 13, "LoRA tok/s per H100: NeMo AutoModel (8B LoRA 12.5k best case, derated to 8k); VESSL Gemma-4-31B LoRA ~1.2k/GPU; MoE ~3.5-4.5k derated; others interpolated by size.", al=wrap, font=f_note)
+    put(wsT, r, 14, f"=ROUNDUP(E{r}*{A['a100_slow']}/{A['sft_h_high']},0)", fmt='0')
+    put(wsT, r, 15, f"=E{r}*{A['a100_slow']}*GPU_Pricing!$I${GR['A100 80GB']}", fmt=USD0)
     wsT.row_dimensions[r].height = 40
 T_last = T0 + SLM_N - 1
 r = T_last + 3
@@ -634,6 +649,101 @@ for t in ["12h/24h scenarios are the user's guidance. The 12h column assumes the
 wsT.freeze_panes = "B6"
 
 # =====================================================================
+# 9b. H100 vs A100
+# =====================================================================
+wsH = sheet("H100_vs_A100", "H100 vs A100 80GB - What You Get, and When H100 Is Worth It",
+            "Prices link to GPU_Pricing; spec rows are NVIDIA datasheet values quoted from memory (NOT re-fetched this session - verify); throughput/SFT ratios are measured (GPUStack, VESSL) or planning assumptions as labelled.", "ED7D31")
+widths(wsH, [46, 20, 20, 18, 80])
+hdr(wsH, 4, ["Property", "H100 80GB (SXM)", "A100 80GB", "H100 / A100", "Why it matters for these workloads"], height=30)
+spec = [("GPU memory", "80 GB HBM3", "80 GB HBM2e", "1.0x", "Same capacity: model-size limits are identical IF the weights are the same precision. A100 cannot use FP8, so big models take ~2x the memory there."),
+        ("Memory bandwidth", "3.35 TB/s", "~2.0 TB/s", "~1.6x", "Decode (writing the ~500 output tokens) is memory-bandwidth bound -> H100 generates tokens ~1.6x faster per stream."),
+        ("BF16 dense compute", "~989 TFLOPS", "~312 TFLOPS", "~3.2x", "Prefill (reading the 3K-token transcript) and SFT training are compute-bound -> big H100 advantage."),
+        ("FP8 support (Transformer Engine)", "Yes: ~1,979 TFLOPS dense", "No (Ampere)", "n/a", "FP8 halves weight memory and adds ~1.3-1.8x speed; lets 27-35B models fit comfortably with KV-cache room. A100 must run BF16 (or INT8/INT4 weight-only)."),
+        ("NVLink bandwidth", "900 GB/s", "600 GB/s", "1.5x", "Matters only for multi-GPU tensor-parallel serving or multi-GPU SFT (8-GPU nodes)."),
+        ("GCP shape / availability", "a3-highgpu-8g (8 GPUs)", "a2-ultragpu-1g (1 GPU)", "-", "A100 80GB comes in 1-GPU shapes (finer billing granularity); H100 is sold in the table used as an 8-GPU instance (per-GPU price = /8)."),
+        ("Not on Cloud Run", "No", "No", "-", "Cloud Run GPU offers only L4 and RTX PRO 6000; H100/A100 need GCE/GKE/Vertex/Databricks.")]
+for i, row_ in enumerate(spec):
+    r = 5 + i
+    for j, v in enumerate(row_): put(wsH, r, 1 + j, v, al=wrap, font=f_bold if j == 0 else None)
+    wsH.row_dimensions[r].height = 44
+r = 5 + len(spec) + 1
+wsH.cell(row=r, column=1, value="Measured / assumed performance ratios").font = f_bold; r += 1
+hdr(wsH, r, ["Metric", "H100", "A100 80GB", "H100 / A100", "Source / basis"], height=26); r += 1
+meas = [("vLLM output tok/s, Qwen3-14B (BF16)", 3174, 1887, "GPUStack Inference Performance Lab, vLLM 0.11.0, ShareGPT"),
+        ("vLLM output tok/s, Qwen3-32B (BF16)", 1132, 832, "same"),
+        ("LoRA SFT speed, Gemma-4-31B (relative)", 1, f"=1/{A['a100_slow']}", "VESSL measured ~2.0x faster on H100; Assumptions 'A100 SFT slowdown' (2.2x) used in cost columns")]
+m0 = r
+for i, (a_, h_, a2, src) in enumerate(meas):
+    put(wsH, r, 1, a_); put(wsH, r, 2, h_, fmt=NUM if i < 2 else '0.00', font=f_in); put(wsH, r, 3, a2, fmt=NUM if i < 2 else '0.00', font=f_in if i < 2 else f_norm)
+    put(wsH, r, 4, f"=B{r}/C{r}", fmt='0.00"x"'); put(wsH, r, 5, src, al=wrap, font=f_note); r += 1
+r += 1
+wsH.cell(row=r, column=1, value="Cost per unit of work by hosting option (A100 throughput = 'Throughput vs H100' on GPU_Pricing; SFT slowdown from Assumptions)").font = f_bold; r += 1
+hdr(wsH, r, ["Hosting option", "H100 $/GPU-h", "A100 80GB $/GPU-h", "Inference cost per token: A100 vs H100", "Reading"], height=40)
+wsH.cell(row=r, column=6, value="SFT job cost: A100 vs H100").font = f_hdr; wsH.cell(row=r, column=6).fill = fill_hdr; wsH.cell(row=r, column=6).alignment = center
+wsH.cell(row=r, column=7, value="SFT wall-clock: A100 vs H100").font = f_hdr; wsH.cell(row=r, column=7).fill = fill_hdr; wsH.cell(row=r, column=7).alignment = center
+wsH.column_dimensions["F"].width = 18; wsH.column_dimensions["G"].width = 18
+r += 1
+hH, hA = GR["H100 80GB"], GR["A100 80GB"]
+tm = f"GPU_Pricing!$P${hA}/GPU_Pricing!$P${hH}"
+for lab, col in (("GCP On-demand", "I"), ("GCP Spot", "J"), ("GCP 1-yr CUD", "K"), ("GCP 3-yr CUD", "L"), ("Databricks serving (DBU)", "N")):
+    put(wsH, r, 1, lab)
+    put(wsH, r, 2, f"=GPU_Pricing!{col}{hH}", fmt=USD, font=f_link); put(wsH, r, 3, f"=GPU_Pricing!{col}{hA}", fmt=USD, font=f_link)
+    put(wsH, r, 4, f"=(C{r}/GPU_Pricing!$P${hA})/(B{r}/GPU_Pricing!$P${hH})", fmt='0.00"x"', fill=fill_sub, font=f_bold)
+    put(wsH, r, 5, f'=IF(D{r}<1,"A100 is "&TEXT(1-D{r},"0%")&" cheaper per token (slower, but cheaper)","H100 is "&TEXT(1-1/D{r},"0%")&" cheaper per token AND faster")', al=wrap)
+    put(wsH, r, 6, f"=({A['a100_slow']}*C{r})/B{r}", fmt='0.00"x"', fill=fill_sub, font=f_bold)
+    put(wsH, r, 7, f"={A['a100_slow']}", fmt='0.0"x slower"')
+    r += 1
+r += 1
+wsH.cell(row=r, column=1, value="Takeaways").font = f_bold; r += 1
+tk = ["INFERENCE: at GCP list prices H100 costs ~2.2x per GPU-hour but is only ~1.5-1.8x faster, so A100 is slightly cheaper per token for batch jobs - IF the model fits in BF16 and you can wait. On Databricks serving (H100 100 DBU/h vs A100 78.5 DBU/GPU-h) H100 is cheaper per token. Ratios above recompute if you change prices/throughput.",
+      "H100 IS NEEDED / PREFERRED WHEN: (1) the model is ~30B+ dense and BF16 weights leave no KV-cache room on 80GB (e.g. Gemma 4 31B at BF16 = 69.9 GB; Qwen3.6-35B = ~70 GB) - FP8 on H100 (35 GB) fits easily; (2) you want the nightly batch to finish fast (15K calls on a 30B dense model take ~4.5 h on H100 vs ~8 h on A100 - see run minutes on SLM_GPU_Matrix; small/MoE models take well under an hour either way); (3) SFT with a fixed 12h/24h window - H100 needs ~half the GPUs; (4) you serve with FP8 for quality-neutral 1.3-1.8x speed-up.",
+      "A100 IS FINE WHEN: the model is <=14B or a ~3B-active MoE that fits BF16 comfortably, the batch window is flexible, and cost per token matters more than finish time. Even cheaper: L4 (<=12B at FP8) or RTX PRO 6000 96GB (native FP8, per-second billing on Cloud Run).",
+      "SFT: A100 and H100 cost about the same per training job (A100 is ~2.2x slower but ~2.2x cheaper per hour) - H100 simply finishes in less than half the time, which is why the 12h/24h SFT scenarios on SFT_Cost use H100.",
+      "Practical note: A100 has no FP8, so the fit check on SLM_Serving_Fit uses BF16 weights for A100 and FP8 weights for L4/RTX PRO 6000/H100 (Assumptions > serving precision)."]
+for t in tk:
+    c = wsH.cell(row=r, column=1, value="• " + t); c.font = f_norm; r += 1
+
+# =====================================================================
+# 9c. SLM x GPU MATRIX (precision, tok/s, run time, cost for every GPU incl. H100)
+# =====================================================================
+wsMX = sheet("SLM_GPU_Matrix", "Every SLM on Every GPU - Precision Needed, Throughput (tok/s), Run Time and Cost (L4 / A100 / RTX PRO 6000 / H100)",
+             "One row per model x GPU. Precision: FP8 on FP8-capable GPUs (L4, RTX PRO 6000, H100); A100 has no FP8 -> BF16 (2x memory). tok/s = H100 planning figure x 'Throughput vs H100' of the GPU. Use the filter to isolate a model or a GPU. Costs: on-demand, billed only while running, hosting option from Assumptions.", "7030A0")
+MXH = ["Model", "GPU", "Weight precision needed", "Weights GB at that precision", "GPU VRAM GB", "Fits (<= usable VRAM)?", "Decode tok/s (batched output)", "Prefill tok/s (input)",
+       "Run minutes per 1K calls (incl. derate)", "$/GPU-h (selected hosting)", "Marginal $ per 1K calls", "Cold-start $ per run", "Cost/day @ 1K calls", "Cost/day @ ref volume", "Monthly @ ref volume", "Cheapest GPU for this model?", "Throughput basis"]
+hdr(wsMX, 5, MXH, height=60)
+widths(wsMX, [34, 18, 12, 12, 9, 11, 13, 13, 13, 11, 12, 11, 12, 12, 13, 12, 40])
+rr_ = 6
+for i in range(SLM_N):
+    mr = M0 + 1 + i; fr = F0 + i
+    r_first = rr_
+    for k, g in enumerate(GN):
+        gr = GR[g]
+        put(wsMX, rr_, 1, f"=SLM_Models!C{mr}", font=f_link, al=Alignment(wrap_text=False)); put(wsMX, rr_, 2, g, font=f_bold)
+        put(wsMX, rr_, 3, f'=IF({A["prec"]}="FP8",IF(GPU_Pricing!$W${gr}=1,"FP8","BF16"),{A["prec"]})')
+        put(wsMX, rr_, 4, f'=IF(C{rr_}="BF16",SLM_Models!$P{mr},IF(C{rr_}="FP8",SLM_Models!$Q{mr},SLM_Models!$R{mr}))', fmt=NUM1)
+        put(wsMX, rr_, 5, f"=GPU_Pricing!$B${gr}", fmt=NUM, font=f_link)
+        put(wsMX, rr_, 6, f'=IF(D{rr_}<=E{rr_}*{A["fit"]},"Yes","No")')
+        put(wsMX, rr_, 7, f"=SLM_Models!$U{mr}*GPU_Pricing!$P${gr}", fmt=NUM)
+        put(wsMX, rr_, 8, f"=SLM_Serving_Fit!$F{fr}*GPU_Pricing!$P${gr}", fmt=NUM)
+        put(wsMX, rr_, 9, f"=1000*({A['tot_in']}/H{rr_}+{A['out_slm']}/G{rr_})/{A['util']}/60", fmt='0.0', fill=fill_sub)
+        put(wsMX, rr_, 10, f"=GPU_Pricing!$O${gr}", fmt=USD, font=f_link)
+        put(wsMX, rr_, 11, f'=IF(AND(F{rr_}="Yes",ISNUMBER(J{rr_})),I{rr_}/60*J{rr_},"n/a")', fmt=USD)
+        put(wsMX, rr_, 12, f'=IF(AND(F{rr_}="Yes",ISNUMBER(J{rr_})),{A["runs_day"]}*{A["cold_min"]}/60*J{rr_},"n/a")', fmt=USD)
+        put(wsMX, rr_, 13, f'=IF(ISNUMBER(K{rr_}),K{rr_}+L{rr_},"n/a")', fmt=USD)
+        put(wsMX, rr_, 14, f'=IF(ISNUMBER(K{rr_}),K{rr_}*{A["ref_vol"]}/1000+L{rr_},"n/a")', fmt=USD, font=f_bold)
+        put(wsMX, rr_, 15, f'=IF(ISNUMBER(N{rr_}),N{rr_}*{A["days"]},"n/a")', fmt=USD0)
+        rr_ += 1
+    for r2_ in range(r_first, rr_):
+        put(wsMX, r2_, 16, f'=IF(ISNUMBER(N{r2_}),IF(N{r2_}=MIN(N${r_first}:N${rr_-1}),"CHEAPEST",""),"")', font=f_bold)
+        put(wsMX, r2_, 17, "H100 figure: planning estimate (SLM_Models col U). GPU factor: GPU_Pricing 'Throughput vs H100'.", font=f_note, al=Alignment(wrap_text=False))
+mx_last = rr_ - 1
+wsMX.freeze_panes = "C6"; wsMX.auto_filter.ref = f"A5:Q{mx_last}"
+wsMX.conditional_formatting.add(f"F6:F{mx_last}", ColorScaleRule(start_type="num", start_value=0, start_color="F8CBAD", end_type="num", end_value=1, end_color="C6EFCE")) if False else None
+from openpyxl.formatting.rule import CellIsRule
+wsMX.conditional_formatting.add(f"F6:F{mx_last}", CellIsRule(operator="equal", formula=['"No"'], fill=PatternFill("solid", bgColor="F8CBAD")))
+wsMX.conditional_formatting.add(f"P6:P{mx_last}", CellIsRule(operator="equal", formula=['"CHEAPEST"'], fill=PatternFill("solid", bgColor="C6EFCE")))
+
+# =====================================================================
 # 10. COMBINED COMPARE
 # =====================================================================
 from openpyxl.chart import LineChart, Reference
@@ -642,7 +752,7 @@ wsC = sheet("Combined_Compare", "Closed LLMs vs Fine-tuned SLMs - Combined Cost 
 vc = 6      # first volume column index (F)
 def cc(col): return L(col)
 # --- headline block
-wsC["A4"] = "HEADLINE - cheapest option per category (deprecated models excluded from 'cheapest closed')"; wsC["A4"].font = f_bold
+wsC["A4"] = "HEADLINE - cheapest option per category. Closed = Gemini 3.6 Flash-level and above only (Lite/older tiers such as Gemini 2.5 Flash-Lite, gpt-5-nano, Haiku, and deprecated models are excluded)"; wsC["A4"].font = f_bold
 HH = ["Category", "Model", "$ per 1K calls (marginal)", None, None] + [None] * NV + ["Monthly @ ref volume", "Annual @ ref volume", "One-time SFT $", "Year-1 total $"]
 hdr(wsC, 5, ["Category", "Model", "Marginal $ per 1K calls"] + [None] * 2 + [None] * NV + ["Monthly @ ref volume", "Annual @ ref volume", "One-time SFT $", "Year-1 total $"], height=48)
 for k in range(NV):
@@ -652,7 +762,7 @@ for k in range(NV):
 wsC.cell(row=5, column=4, value="Run/billing mode").font = f_hdr
 wsC.cell(row=5, column=5, value="-").font = f_hdr
 widths(wsC, [30, 34, 13, 26, 12] + [10] * NV + [14, 14, 13, 14, 10, 15, 16])
-vS = f"Closed_Std!${L(10+NV)}$6:${L(10+NV)}${S_last}"; vB = f"Closed_Batch!${L(10+NV)}$6:${L(10+NV)}${B_last}"; vQ = f"Closed_BigQuery!${L(10+NV)}$6:${L(10+NV)}${Q_last}"
+vS = f"Closed_Std!${L(11+NV)}$6:${L(11+NV)}${S_last}"; vB = f"Closed_Batch!${L(11+NV)}$6:${L(11+NV)}${B_last}"; vQ = f"Closed_BigQuery!${L(11+NV)}$6:${L(11+NV)}${Q_last}"
 def head_closed(r, label, sheetname, last, helper, mode):
     rngB = f"{sheetname}!$B$6:$B${last}"
     m = f"MATCH(MIN({helper}),{helper},0)"
@@ -665,9 +775,9 @@ def head_closed(r, label, sheetname, last, helper, mode):
     put(wsC, r, vc + NV, f"=MIN({helper})", fmt=USD0, font=f_bold)
     put(wsC, r, vc + NV + 1, f"={L(vc+NV)}{r}*365/{A['days']}", fmt=USD0)
     put(wsC, r, vc + NV + 2, 0, fmt=USD0); put(wsC, r, vc + NV + 3, f"={L(vc+NV+1)}{r}+{L(vc+NV+2)}{r}", fmt=USD0)
-head_closed(6, "Closed - cheapest Standard API", "Closed_Std", S_last, vS, "Real-time API, pay per token")
-head_closed(7, "Closed - cheapest Batch API", "Closed_Batch", B_last, vB, "Provider Batch API (-50%)")
-head_closed(8, "Closed - cheapest Gemini via BigQuery", "Closed_BigQuery", Q_last, vQ, "BigQuery AI.GENERATE (batch-rated -50%)")
+head_closed(6, "Closed (Flash-level+) - cheapest Standard API", "Closed_Std", S_last, vS, "Real-time API, pay per token")
+head_closed(7, "Closed (Flash-level+) - cheapest Batch API", "Closed_Batch", B_last, vB, "Provider Batch API (-50%)")
+head_closed(8, "Closed (Flash-level+) - cheapest Gemini via BigQuery", "Closed_BigQuery", Q_last, vQ, "BigQuery AI.GENERATE (batch-rated -50%)")
 # cheapest SLM (Block B monthly)
 sm = f"SLM_Daily_Cost!${L(nc+NV+1)}${dB0}:${L(nc+NV+1)}${dB_last}"
 mS = f"MATCH(MIN({sm}),{sm},0)"
@@ -688,21 +798,47 @@ for k in range(NV): put(wsC, 10, vc + k, f"=INDEX(Closed_Std!${L(6+k)}$6:${L(6+k
 put(wsC, 10, vc + NV, f"=INDEX(Closed_Std!${L(6+NV)}$6:${L(6+NV)}${S_last},{mb})", fmt=USD0, font=f_bold)
 put(wsC, 10, vc + NV + 1, f"={L(vc+NV)}10*365/{A['days']}", fmt=USD0); put(wsC, 10, vc + NV + 2, 0, fmt=USD0); put(wsC, 10, vc + NV + 3, f"={L(vc+NV+1)}10+{L(vc+NV+2)}10", fmt=USD0)
 BASE_MONTH = f"${L(vc+NV)}$10"
+# cheapest SLM on H100 (Block A)
+smA = f"SLM_Daily_Cost!${L(nc+NV+1)}${D0}:${L(nc+NV+1)}${dA_last}"
+mA = f"MATCH(MIN({smA}),{smA},0)"
+put(wsC, 14, 1, "SLM - cheapest on 1xH100 (reference machine)", font=f_bold)
+put(wsC, 14, 2, f"=INDEX(SLM_Daily_Cost!$A${D0}:$A${dA_last},{mA})", font=f_link)
+put(wsC, 14, 3, f"=INDEX(SLM_Daily_Cost!$E${D0}:$E${dA_last},{mA})*1000", fmt=USD)
+put(wsC, 14, 4, "On-demand H100 (billed while running)"); put(wsC, 14, 5, "")
+for k in range(NV): put(wsC, 14, vc + k, f"=INDEX(SLM_Daily_Cost!${L(nc+1+k)}${D0}:${L(nc+1+k)}${dA_last},{mA})", fmt=USD0)
+put(wsC, 14, vc + NV, f"=MIN({smA})", fmt=USD0, font=f_bold)
+put(wsC, 14, vc + NV + 1, f"={L(vc+NV)}14*365/{A['days']}", fmt=USD0)
+put(wsC, 14, vc + NV + 2, f"=INDEX(SFT_Cost!$I${T0}:$I${T_last},{mA})", fmt=USD0); put(wsC, 14, vc + NV + 3, f"={L(vc+NV+1)}14+{L(vc+NV+2)}14", fmt=USD0)
+# per-provider cheapest (Standard, Flash-level+)
+def head_provider(r, label, pfx):
+    provA = f"Closed_Std!$A$6:$A${S_last}"
+    mn = f"_xlfn.MINIFS({vS},{provA},\"{pfx}*\")"
+    m = f"MATCH(1,INDEX((LEFT({provA},{len(pfx)})=\"{pfx}\")*({vS}={mn}),0),0)"
+    put(wsC, r, 1, label, font=f_bold)
+    put(wsC, r, 2, f"=INDEX(Closed_Std!$B$6:$B${S_last},{m})", font=f_link)
+    put(wsC, r, 3, f"=INDEX(Closed_Std!$E$6:$E${S_last},{m})", fmt=USD)
+    put(wsC, r, 4, "Real-time API, pay per token"); put(wsC, r, 5, "")
+    for k in range(NV): put(wsC, r, vc + k, f"=INDEX(Closed_Std!${L(6+k)}$6:${L(6+k)}${S_last},{m})", fmt=USD0)
+    put(wsC, r, vc + NV, f"={mn}", fmt=USD0, font=f_bold)
+    put(wsC, r, vc + NV + 1, f"={L(vc+NV)}{r}*365/{A['days']}", fmt=USD0); put(wsC, r, vc + NV + 2, 0, fmt=USD0); put(wsC, r, vc + NV + 3, f"={L(vc+NV+1)}{r}+{L(vc+NV+2)}{r}", fmt=USD0)
+head_provider(11, "  by provider - cheapest Gemini (Flash-level+)", "Google")
+head_provider(12, "  by provider - cheapest Claude (Flash-level+)", "Anthropic")
+head_provider(13, "  by provider - cheapest OpenAI (Flash-level+)", "OpenAI")
 # chart
 ch = LineChart(); ch.title = "Daily cost vs calls/day - cheapest option per category"; ch.height = 9; ch.width = 24
 ch.y_axis.title = "USD per day"; ch.x_axis.title = "Calls per day"
 data = Reference(wsC, min_col=vc - 5 + 1, max_col=vc + NV - 1, min_row=6, max_row=9)
-for rrow in range(6, 10):
+for rrow in (6, 7, 9, 14, 10, 11, 12, 13):
     from openpyxl.chart import Series
     sr = Series(Reference(wsC, min_col=vc, max_col=vc + NV - 1, min_row=rrow, max_row=rrow), title_from_data=False, title=wsC.cell(row=rrow, column=1).value)
     ch.series.append(sr)
 ch.set_categories(Reference(wsC, min_col=vc, max_col=vc + NV - 1, min_row=5, max_row=5))
-wsC.add_chart(ch, "A12")
+wsC.add_chart(ch, "A15")
 # --- full table
-FT = 31
+FT = 37
 wsC.cell(row=FT - 1, column=1, value="FULL TABLE - every option (use the header filters; sort by Year-1 total to rank)").font = f_bold
 hdr(wsC, FT, ["Category", "Provider / developer", "Model", "Flag / GPU used", "Marginal $ per 1K calls"] + [None] * NV +
-    ["Monthly @ ref volume", "Annual @ ref volume", "One-time SFT $", "Year-1 total $ (annual + SFT)", "Rank (Year-1)", "Saving vs selected baseline $/month", "SFT break-even months vs baseline"], height=60)
+    ["Monthly @ ref volume", "Annual @ ref volume", "One-time SFT $", "Year-1 total $ (annual + SFT)", "Rank (Year-1)", "Saving vs selected baseline $/month", "SFT break-even months vs baseline", "Comparison tier"], height=60)
 for k in range(NV):
     c = wsC.cell(row=FT, column=vc + k)
     c.value = f"={A['vol_step']}" if k == 0 else f"={L(vc+k-1)}{FT}+{A['vol_step']}"
@@ -723,27 +859,30 @@ def closed_rows(label, sheetname, last):
         put(wsC, r, cY, f'=IF(ISNUMBER({L(cA)}{r}),{L(cA)}{r}+{L(cS)}{r},"n/a")', fmt=USD0, font=f_bold)
         put(wsC, r, cV, f'=IF(ISNUMBER({L(cM)}{r}),{BASE_MONTH}-{L(cM)}{r},"n/a")', fmt=USD0)
         put(wsC, r, cB, "-")
+        put(wsC, r, cB + 1, f"=INDEX(Closed_Pricing!$AA${P0+1}:$AA${P_last},MATCH(C{r},Closed_Pricing!$B${P0+1}:$B${P_last},0))", font=f_link)
         row_i += 1
 closed_rows("Closed - Standard API", "Closed_Std", S_last)
 closed_rows("Closed - Batch API", "Closed_Batch", B_last)
 closed_rows("Closed - Gemini via BigQuery (batch)", "Closed_BigQuery", Q_last)
-for i in range(SLM_N):
-    r = row_i; dr = dB0 + i; fr = F0 + i; mr = M0 + 1 + i
-    put(wsC, r, 1, "SLM - fine-tuned, on-demand GPU"); put(wsC, r, 2, f"=SLM_Models!E{mr}", font=f_link, al=Alignment(wrap_text=False)); put(wsC, r, 3, f"=SLM_Daily_Cost!A{dr}", font=f_link, al=Alignment(wrap_text=False))
-    put(wsC, r, 4, f'=IF(ISNUMBER(SLM_Daily_Cost!E{dr}),"Runs on "&SLM_Daily_Cost!B{dr}&"; "&TEXT(SLM_Serving_Fit!H{fr},"0.0")&" min per 1K calls on H100","No fit / price n/a")', font=f_link, al=Alignment(wrap_text=False))
-    put(wsC, r, 5, f'=IF(ISNUMBER(SLM_Daily_Cost!E{dr}),SLM_Daily_Cost!E{dr}*1000,"n/a")', fmt=USD, font=f_link)
-    for k in range(NV): put(wsC, r, vc + k, f"=SLM_Daily_Cost!{L(nc+1+k)}{dr}", fmt=USD0, font=f_link)
-    put(wsC, r, cM, f"=SLM_Daily_Cost!{L(nc+NV+1)}{dr}", fmt=USD0, font=f_link); put(wsC, r, cA, f"=SLM_Daily_Cost!{L(nc+NV+2)}{dr}", fmt=USD0, font=f_link)
-    put(wsC, r, cS, f"=SFT_Cost!I{T0+i}", fmt=USD0, font=f_link)
-    put(wsC, r, cY, f'=IF(ISNUMBER({L(cA)}{r}),{L(cA)}{r}+{L(cS)}{r},"n/a")', fmt=USD0, font=f_bold)
-    put(wsC, r, cV, f'=IF(ISNUMBER({L(cM)}{r}),{BASE_MONTH}-{L(cM)}{r},"n/a")', fmt=USD0)
-    put(wsC, r, cB, f'=IF(NOT(ISNUMBER({L(cV)}{r})),"n/a",IF({L(cV)}{r}>0,{L(cS)}{r}/{L(cV)}{r},"never - costs more than baseline"))', fmt='0.0')
-    row_i += 1
+for blk_label, blk0 in (("SLM - fine-tuned, on-demand GPU (cheapest that fits)", dB0), ("SLM - fine-tuned, on 1xH100 (reference)", D0)):
+    for i in range(SLM_N):
+        r = row_i; dr = blk0 + i; fr = F0 + i; mr = M0 + 1 + i
+        put(wsC, r, 1, blk_label); put(wsC, r, 2, f"=SLM_Models!E{mr}", font=f_link, al=Alignment(wrap_text=False)); put(wsC, r, 3, f"=SLM_Daily_Cost!A{dr}", font=f_link, al=Alignment(wrap_text=False))
+        put(wsC, r, 4, f'=IF(ISNUMBER(SLM_Daily_Cost!E{dr}),"Runs on "&SLM_Daily_Cost!B{dr}&"; "&TEXT(SLM_Serving_Fit!H{fr},"0.0")&" min per 1K calls on H100","No fit / price n/a")', font=f_link, al=Alignment(wrap_text=False))
+        put(wsC, r, 5, f'=IF(ISNUMBER(SLM_Daily_Cost!E{dr}),SLM_Daily_Cost!E{dr}*1000,"n/a")', fmt=USD, font=f_link)
+        for k in range(NV): put(wsC, r, vc + k, f"=SLM_Daily_Cost!{L(nc+1+k)}{dr}", fmt=USD0, font=f_link)
+        put(wsC, r, cM, f"=SLM_Daily_Cost!{L(nc+NV+1)}{dr}", fmt=USD0, font=f_link); put(wsC, r, cA, f"=SLM_Daily_Cost!{L(nc+NV+2)}{dr}", fmt=USD0, font=f_link)
+        put(wsC, r, cS, f"=SFT_Cost!I{T0+i}", fmt=USD0, font=f_link)
+        put(wsC, r, cY, f'=IF(ISNUMBER({L(cA)}{r}),{L(cA)}{r}+{L(cS)}{r},"n/a")', fmt=USD0, font=f_bold)
+        put(wsC, r, cV, f'=IF(ISNUMBER({L(cM)}{r}),{BASE_MONTH}-{L(cM)}{r},"n/a")', fmt=USD0)
+        put(wsC, r, cB, f'=IF(NOT(ISNUMBER({L(cV)}{r})),"n/a",IF({L(cV)}{r}>0,{L(cS)}{r}/{L(cV)}{r},"never - costs more than baseline"))', fmt='0.0')
+        put(wsC, r, cB + 1, "SLM")
+        row_i += 1
 last_c = row_i - 1
 for r in range(first, last_c + 1):
     put(wsC, r, cR, f'=IFERROR(RANK({L(cY)}{r},${L(cY)}${first}:${L(cY)}${last_c},1),"")', fmt='0')
 wsC.conditional_formatting.add(f"{L(vc)}{first}:{L(vc+NV-1)}{last_c}", ColorScaleRule(start_type="percentile", start_value=5, start_color="C6EFCE", mid_type="percentile", mid_value=50, mid_color="FFFFFF", end_type="percentile", end_value=95, end_color="F8CBAD"))
-wsC.auto_filter.ref = f"A{FT}:{L(cB)}{last_c}"
+wsC.auto_filter.ref = f"A{FT}:{L(cB+1)}{last_c}"
 wsC.freeze_panes = wsC.cell(row=FT + 1, column=4)
 r = last_c + 2
 for t in ["Cost only: closed frontier models work zero-shot, SLMs need SFT + an in-house eval to confirm summary/extraction quality. PII/data-residency value of self-hosting is not priced.",
@@ -777,8 +916,10 @@ rX = XH + 1
 def slm_row(label, idx, mode):
     global rX
     rb = dB0 + idx
-    put(wsX, rX, 1, label, font=f_bold, fill=fill_sub); put(wsX, rX, 2, "SLM (self-hosted)" if mode == "base" else "SLM (stress test)", fill=fill_sub)
+    put(wsX, rX, 1, label, font=f_bold, fill=fill_sub); put(wsX, rX, 2, "SLM (self-hosted)" if mode in ("base", "h100") else "SLM (stress test)", fill=fill_sub)
+    ra = D0 + idx
     if mode == "base": var = f"SLM_Daily_Cost!$E${rb}"; fix = f"SLM_Daily_Cost!$F${rb}"
+    elif mode == "h100": var = f"SLM_Daily_Cost!$E${ra}"; fix = f"SLM_Daily_Cost!$F${ra}"
     else: var = f"SLM_Daily_Cost!$E${rb}/$B$5"; fix = f"{A['runs_day']}*$B$6/60*SLM_Daily_Cost!$C${rb}"
     put(wsX, rX, 3, f'=IFERROR({var}*1000,"n/a")', fmt=USD)
     for k in range(NV): put(wsX, rX, xv + k, f'=IFERROR({L(xv+k)}${XH}*({var})+{fix},"n/a")', fmt=USD)
@@ -789,6 +930,8 @@ S_NB = slm_row("Nemotron 3.5 Lightning 30B-A3B - base (cheapest feasible GPU)", 
 S_NS = slm_row("Nemotron 3.5 Lightning 30B-A3B - STRESS (half speed, longer cold start)", 7, "stress")
 S_GB = slm_row("Gemma 4 12B - base (cheapest feasible GPU)", 8, "base")
 S_GS = slm_row("Gemma 4 12B - STRESS (half speed, longer cold start)", 8, "stress")
+S_NH = slm_row("Nemotron 3.5 Lightning 30B-A3B - on 1xH100 (FP8, fastest; shown for comparison)", 7, "h100")
+S_GH = slm_row("Gemma 4 12B - on 1xH100 (FP8, fastest; shown for comparison)", 8, "h100")
 c_first = rX
 COMP = [("Google", ["Gemini 3.5 Flash", "Gemini 3.6 Flash", "Gemini 3.7 Flash", "Gemini 3.8 Flash", "Gemini 3.1 Pro Preview", "Gemini 4 Argon"]),
         ("Anthropic", ["Claude Sonnet 4.6", "Claude Sonnet 5", "Claude Sonnet 5.5", "Claude Opus 5", "Claude Opus 5.5", "Claude Fable 5.1"]),
@@ -1067,6 +1210,8 @@ rows0 = [
  ("  Combined_Compare", "START HERE: one table + chart comparing every closed option (Standard, Batch, BigQuery) with every SLM, daily cost at 1K-15K calls, monthly/annual, one-time SFT, Year-1 total and break-even."),
  ("  Focus_Compare", "Nemotron 3.5 Lightning + Gemma 4 12B vs Flash-tier-and-above closed models (Gemini 3.5+, Claude Sonnet/Opus, gpt-6 luna/sol/astra), with stress test and managed-API cross-check."),
  ("  Accuracy_Expectations", "Expected accuracy ranges: open SLM zero-shot vs closed flash-tier vs after SFT/distillation from Gemini 3.6 Flash (extraction + summarization), label cost, recipe, risks. Evidence on Acc_Evidence_* sheets."),
+ ("  SLM_GPU_Matrix", "Every model on every GPU (L4, A100, RTX PRO 6000, H100): precision needed, tok/s, run minutes, cost per 1K calls, per day and per month; cheapest flagged."),
+ ("  H100_vs_A100", "What H100 adds over A100 (FP8, bandwidth, compute), measured ratios, cost per token / per SFT job by hosting option, and when each is the right choice."),
  ("  SLM_Serving_Fit", "How long a batch run takes per model (prefill + batched decode throughput), which GPU it fits on (incl. L4 for small models) and cost per run at the reference volume."),
  ("  SLM_Daily_Cost", "Daily cost 1K..15K calls: Block A same-machine (1xH100), Block B cheapest feasible GPU."),
  ("  SFT_Cost", "One-time fine-tuning cost per model = GPUs x 12h / 24h x H100 $/h (with token-throughput cross-check); Vertex managed-SFT reference."),
@@ -1082,7 +1227,7 @@ for i, (a, b) in enumerate(rows0):
     ws0.row_dimensions[r].height = max(16, 15 * (len(b) // 135 + 1))
 wb.move_sheet("README", offset=-(len(wb.sheetnames) - 1))
 order = ["README", "Assumptions", "Closed_Pricing", "Closed_Std", "Closed_Batch", "Closed_BigQuery", "SLM_Models", "SLM_Benchmarks", "GPU_Pricing", "Deployment_Options",
-         "SLM_Serving_Fit", "SLM_Daily_Cost", "SFT_Cost", "Acc_Evidence_ZeroShot", "Acc_Evidence_FineTune", "GPU_Pricing_Raw", "Sources"]
+         "SLM_Serving_Fit", "SLM_GPU_Matrix", "H100_vs_A100", "SLM_Daily_Cost", "SFT_Cost", "Acc_Evidence_ZeroShot", "Acc_Evidence_FineTune", "GPU_Pricing_Raw", "Sources"]
 order.insert(1, "Combined_Compare"); order.insert(2, "Focus_Compare"); order.insert(3, "Accuracy_Expectations")
 wb._sheets = [wb[n] for n in order]
 for ws in wb.worksheets:
