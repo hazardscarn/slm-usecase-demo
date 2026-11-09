@@ -147,6 +147,7 @@ add("cold_min", "Cold start per run (instance boot + model load)", 5, "minutes",
 add("runs_day", "Batch runs per day (each pays a cold start)", 1, "runs/day", "1 = one nightly batch of all that day's calls. Use 24 for hourly runs.", fmt=NUM)
 add("cr_cpu", "Cloud Run price per vCPU-second", 0.000018, "$/vCPU-s", "https://cloud.google.com/run/pricing - us-central1 default, instance-based billing, accessed 2026-11-08.", fmt='$0.000000')
 add("cr_mem", "Cloud Run price per GiB-second", 0.000002, "$/GiB-s", "https://cloud.google.com/run/pricing - us-central1 default, accessed 2026-11-08.", fmt='$0.000000')
+add("bw_eff", "Memory-bandwidth efficiency for single-stream decode", 0.6, "%", "ASSUMPTION - real decode reaches ~50-70% of peak memory bandwidth. Single-stream tok/s = efficiency x bandwidth / bytes of ACTIVE weights read per token (roofline).", fmt=PCT)
 add("slm_think", "Thinking tokens per task call for fine-tuned SLM", 0, "tokens", "Assumption: SFT teaches direct JSON/summary output with no reasoning trace.", fmt=NUM)
 
 sec("5. One-time SFT (fine-tuning) assumptions")
@@ -461,7 +462,7 @@ wsG = sheet("GPU_Pricing", "GPU Catalog & Hosting Prices (per GPU-hour, us-centr
             f"Sources: https://cloud.google.com/products/compute/pricing/accelerator-optimized (GCE on-demand/Spot/CUD) and https://www.databricks.com/product/pricing/model-serving (DBU/hour) accessed {ACCESSED}. Full 235-record dump on 'GPU_Pricing_Raw'.", "ED7D31")
 GH = ["GPU", "VRAM (GB)", "GCP instance (bundled vCPU/RAM)", "GPUs per instance", "Instance $/h On-demand", "Instance $/h Spot", "Instance $/h 1-yr CUD", "Instance $/h 3-yr CUD",
       "GCP On-demand", "GCP Spot", "GCP 1-yr CUD", "GCP 3-yr CUD", "Databricks DBU/h per GPU", "Databricks serving (DBU)", "SELECTED $/GPU-h (Assumptions)", "Throughput vs H100", "Databricks SKU used / notes", "Source",
-      "Cloud Run GPU $/second", "Cloud Run vCPUs", "Cloud Run GiB RAM", "GCP Cloud Run GPU (per-second) $/h", "Native FP8 weights? (1/0)"]
+      "Cloud Run GPU $/second", "Cloud Run vCPUs", "Cloud Run GiB RAM", "GCP Cloud Run GPU (per-second) $/h", "Native FP8 weights? (1/0)", "Memory bandwidth GB/s (NVIDIA datasheet, from memory - verify)"]
 hdr(wsG, 5, GH, height=56)
 widths(wsG, [20, 9, 22, 9, 12, 12, 12, 12, 11, 11, 11, 11, 12, 13, 14, 11, 60, 60, 13, 9, 9, 14, 12])
 GPUS = [
@@ -492,6 +493,7 @@ for i, g in enumerate(GPUS):
         for cc in (19, 20, 21): put(wsG, r, cc, "-")
         put(wsG, r, 22, "n/a")
     put(wsG, r, 23, 0 if g[0] == 'A100 80GB' else 1, font=f_in)
+    put(wsG, r, 24, {'L4 24GB': 300, 'A100 80GB': 2039, 'RTX PRO 6000 96GB': 1792, 'H100 80GB': 3350}[g[0]], fmt=NUM, font=f_in)
     wsG.row_dimensions[r].height = 52
 G_last = G0 + len(GPUS) - 1
 r = G_last + 2
@@ -742,6 +744,24 @@ wsMX.conditional_formatting.add(f"F6:F{mx_last}", ColorScaleRule(start_type="num
 from openpyxl.formatting.rule import CellIsRule
 wsMX.conditional_formatting.add(f"F6:F{mx_last}", CellIsRule(operator="equal", formula=['"No"'], fill=PatternFill("solid", bgColor="F8CBAD")))
 wsMX.conditional_formatting.add(f"P6:P{mx_last}", CellIsRule(operator="equal", formula=['"CHEAPEST"'], fill=PatternFill("solid", bgColor="C6EFCE")))
+
+# ---- TPS per GPU added to SLM_Models (post-pass: needs Fit sheet + GPU catalog)
+TPSH = [f"Batched decode tok/s - {g}" for g in GN] + [f"Single-stream decode tok/s - {g}" for g in GN] + ["MoE advantage: total / active params (x)"]
+hdr(wsM, M0, TPSH, col=28, height=56)
+for c_ in range(28, 37): wsM.column_dimensions[L(c_)].width = 13
+for i in range(SLM_N):
+    mr = M0 + 1 + i; fr = F0 + i
+    for k, g in enumerate(GN):
+        gr = GR[g]; fit = f"SLM_Serving_Fit!${L(9+k)}${fr}=1"
+        put(wsM, mr, 28 + k, f'=IF({fit},U{mr}*GPU_Pricing!$P${gr},"no fit")', fmt=NUM, fill=fill_sub)
+        wexp = f'IF(AND({A["prec"]}="FP8",GPU_Pricing!$W${gr}=0),P{mr},IF({A["prec"]}="FP8",Q{mr},IF({A["prec"]}="BF16",P{mr},R{mr})))'
+        put(wsM, mr, 32 + k, f'=IF({fit},{A["bw_eff"]}*GPU_Pricing!$X${gr}/(M{mr}*{wexp}/K{mr}),"no fit")', fmt=NUM)
+    put(wsM, mr, 36, f"=K{mr}/M{mr}", fmt='0.0"x"', font=f_bold)
+rr0 = M_last + 8
+for t in ["TPS columns (AB-AJ): BATCHED = aggregate output tokens/s with many calls in flight (what the nightly batch uses) = H100 planning figure (col U) x the GPU's 'Throughput vs H100' factor; 'no fit' = weights do not fit in usable VRAM at the precision that GPU needs (A100 = BF16, others FP8).",
+          "SINGLE-STREAM = tokens/s for ONE request (interactive/real-time latency) from a memory-bandwidth roofline: efficiency x GPU bandwidth / bytes of ACTIVE weights per token. This is where MoE shines: a 30B-A3B model reads only ~3B active weights per token, so a single stream is ~10x faster than a 30B dense model on the same GPU (see 'MoE advantage' = total/active).",
+          "At high batch sizes (our nightly batch) the MoE advantage shrinks because different requests touch different experts, so batched tok/s of a 30B-A3B is ~3-5x (not 10x) a 30B dense model. Single-stream numbers are theoretical ceilings; real engines reach less. Bandwidths are NVIDIA datasheet values from memory (not re-fetched)."]:
+    wsM.cell(row=rr0, column=2, value="• " + t).font = f_note; rr0 += 1
 
 # =====================================================================
 # 10. COMBINED COMPARE
@@ -1136,7 +1156,7 @@ widths(wsY, [34, 15, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 13, 12,
 YH = 15
 hdr(wsY, YH, ["Model", "Size class (edit)", "Position in extraction gap band (0=best, 1=worst)", "Position in summarization gap band (0=best, 1=worst)",
               "EXTRACTION zero-shot LOW", "zero-shot HIGH", "zero-shot MID", "EXTRACTION after SFT LOW", "after SFT HIGH", "after SFT MID", "Lift from SFT (pts, mid)",
-              "SUMMARY faithfulness zero-shot MID", "SUMMARY after SFT MID", "Lift (pts)", "Monthly $ @ ref vol (cheapest GPU)", "One-time SFT $ (selected hours)", "Origin", "Public proxy evidence (from SLM_Models)", "Rank by post-SFT extraction MID"], height=84)
+              "SUMMARY faithfulness zero-shot MID", "SUMMARY after SFT MID", "Lift (pts)", "Monthly $ @ ref vol (cheapest GPU)", "One-time SFT $ (selected hours)", "Origin", "Public proxy evidence (from SLM_Models)", "Rank by post-SFT extraction MID", "Batched decode tok/s on H100", "Single-stream tok/s on H100", "MoE advantage (total/active)"], height=84)
 PRIOR = [ # class, p_ext, p_sum, rationale in order of slm list
  ("Large (20-35B)", 0.35, 0.30), ("Large (20-35B)", 0.30, 0.40), ("Large (20-35B)", 0.30, 0.10), ("Large (20-35B)", 0.40, 0.40),
  ("Large (20-35B)", 0.40, 0.00), ("Large (20-35B)", 0.50, 0.40), ("Large (20-35B)", 0.40, 0.50), ("Large (20-35B)", 0.50, 0.50),
@@ -1162,10 +1182,11 @@ for i in range(SLM_N):
     put(wsY, r, 15, f"=SLM_Daily_Cost!{L(nc+NV+1)}{dB0+i}", fmt=USD0, font=f_link); put(wsY, r, 16, f"=SFT_Cost!I{T0+i}", fmt=USD0, font=f_link)
     put(wsY, r, 17, f"=SLM_Models!F{mr}", font=f_link, al=wrap); put(wsY, r, 18, f"=SLM_Models!W{mr}", font=f_link, al=wrap)
     put(wsY, r, 19, f"=RANK(J{r},$J${Y0}:$J${Y0+SLM_N-1},0)", fmt='0')
+    put(wsY, r, 20, f"=SLM_Models!AE{mr}", fmt=NUM, font=f_link); put(wsY, r, 21, f"=SLM_Models!AI{mr}", fmt=NUM, font=f_link); put(wsY, r, 22, f"=SLM_Models!AJ{mr}", fmt='0.0"x"', font=f_link)
     wsY.row_dimensions[r].height = 62
 Y_last = Y0 + SLM_N - 1
 wsY.freeze_panes = wsY.cell(row=Y0, column=2)
-wsY.auto_filter.ref = f"A{YH}:S{Y_last}"
+wsY.auto_filter.ref = f"A{YH}:V{Y_last}"
 wsY.conditional_formatting.add(f"J{Y0}:J{Y_last}", ColorScaleRule(start_type="min", start_color="F8CBAD", mid_type="percentile", mid_value=50, mid_color="FFFFFF", end_type="max", end_color="C6EFCE"))
 r = Y_last + 2
 for t in ["How to read: zero-shot MID = teacher accuracy minus a gap that depends on where the model sits in the evidence band (position 0 = small gap, 1 = large gap). After-SFT MID = teacher accuracy x recovery, where recovery sits between the size-class LOW and HIGH bounds depending on base-model strength (strong base = near HIGH; ASSUMPTION - not measured), never below zero-shot. Ranges are scenario estimates, not predictions.",
