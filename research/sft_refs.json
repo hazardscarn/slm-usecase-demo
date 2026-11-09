@@ -1,0 +1,229 @@
+{
+ "accessed": "2026-11-08",
+ "assumptions": [
+  "tokens = 50K x 3K = 150M/epoch; x2-3 epochs = 300-450M tokens",
+  "GPU-hours = tokens / (tok/s/GPU) / 3600, using H100 LoRA tok/s derated from NeMo best-case (8B: 12.5k -> 8k) and from measured VESSL/Gemma-31B (1.2k) for 27-31B; 3B scaled from 8B; MoE-A3B set from NeMo MoE (12k full) derated for HF/Unsloth LoRA ~4k.",
+  "Full FT multiplier: LoRA skips weight-gradient matmuls (~4N vs 6N FLOPs/token, 6N vs 8N with grad checkpointing) = ~1.33x, plus FSDP communication and optimizer state => 1.5x (<=8B), 1.8-2.0x (>=12B). Full FT memory ~16 bytes/param (8B=128GB) forces multi-GPU.",
+  "All throughput numbers are best-effort ESTIMATES (+/-50%); sequence packing to ~4k, grad checkpointing, FlashAttn2 assumed. Validate with a 100-step pilot run (measure tok/s, then extrapolate).",
+  "A100 80GB ~2.0-2.5x slower than H100 (VESSL: 2.0x measured; 2.5x stated). L4 (24GB) only feasible for <=3B QLoRA, ~10x slower than H100."
+ ],
+ "gcp_gpu_hour_prices_used": {
+  "H100_ondemand": 11.062,
+  "H100_spot": 6.588,
+  "H100_3yr_cud": 4.858,
+  "A100_80_ondemand": 5.06879789,
+  "A100_40_ondemand": 3.673385
+ },
+ "estimates": [
+  {
+   "model": "3B",
+   "epochs": 2,
+   "tokens_M": 300.0,
+   "LoRA_H100_tok_s_per_GPU": 20000,
+   "LoRA_H100_GPU_hours": 4.2,
+   "FullFT_multiplier": 1.5,
+   "FullFT_H100_GPU_hours": 6.2,
+   "LoRA_cost_gcp_h100_ondemand_usd": 46,
+   "LoRA_cost_gcp_h100_spot_usd": 27,
+   "LoRA_cost_gcp_h100_3yr_usd": 20,
+   "FullFT_cost_gcp_h100_ondemand_usd": 69,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 9.6,
+   "hardware": "LoRA 1xH100 80GB; full FT 1-2 GPUs"
+  },
+  {
+   "model": "3B",
+   "epochs": 3,
+   "tokens_M": 450.0,
+   "LoRA_H100_tok_s_per_GPU": 20000,
+   "LoRA_H100_GPU_hours": 6.2,
+   "FullFT_multiplier": 1.5,
+   "FullFT_H100_GPU_hours": 9.4,
+   "LoRA_cost_gcp_h100_ondemand_usd": 69,
+   "LoRA_cost_gcp_h100_spot_usd": 41,
+   "LoRA_cost_gcp_h100_3yr_usd": 30,
+   "FullFT_cost_gcp_h100_ondemand_usd": 104,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 14.4,
+   "hardware": "LoRA 1xH100 80GB; full FT 1-2 GPUs"
+  },
+  {
+   "model": "8B",
+   "epochs": 2,
+   "tokens_M": 300.0,
+   "LoRA_H100_tok_s_per_GPU": 8000,
+   "LoRA_H100_GPU_hours": 10.4,
+   "FullFT_multiplier": 1.5,
+   "FullFT_H100_GPU_hours": 15.6,
+   "LoRA_cost_gcp_h100_ondemand_usd": 115,
+   "LoRA_cost_gcp_h100_spot_usd": 69,
+   "LoRA_cost_gcp_h100_3yr_usd": 51,
+   "FullFT_cost_gcp_h100_ondemand_usd": 173,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 24.0,
+   "hardware": "LoRA 1xH100; full FT needs 8xH100 FSDP (~130GB states) "
+  },
+  {
+   "model": "8B",
+   "epochs": 3,
+   "tokens_M": 450.0,
+   "LoRA_H100_tok_s_per_GPU": 8000,
+   "LoRA_H100_GPU_hours": 15.6,
+   "FullFT_multiplier": 1.5,
+   "FullFT_H100_GPU_hours": 23.4,
+   "LoRA_cost_gcp_h100_ondemand_usd": 173,
+   "LoRA_cost_gcp_h100_spot_usd": 103,
+   "LoRA_cost_gcp_h100_3yr_usd": 76,
+   "FullFT_cost_gcp_h100_ondemand_usd": 259,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 35.9,
+   "hardware": "LoRA 1xH100; full FT needs 8xH100 FSDP (~130GB states) "
+  },
+  {
+   "model": "12B",
+   "epochs": 2,
+   "tokens_M": 300.0,
+   "LoRA_H100_tok_s_per_GPU": 5500,
+   "LoRA_H100_GPU_hours": 15.2,
+   "FullFT_multiplier": 1.8,
+   "FullFT_H100_GPU_hours": 27.3,
+   "LoRA_cost_gcp_h100_ondemand_usd": 168,
+   "LoRA_cost_gcp_h100_spot_usd": 100,
+   "LoRA_cost_gcp_h100_3yr_usd": 74,
+   "FullFT_cost_gcp_h100_ondemand_usd": 302,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 34.8,
+   "hardware": "LoRA 1xH100; full FT 8xH100"
+  },
+  {
+   "model": "12B",
+   "epochs": 3,
+   "tokens_M": 450.0,
+   "LoRA_H100_tok_s_per_GPU": 5500,
+   "LoRA_H100_GPU_hours": 22.7,
+   "FullFT_multiplier": 1.8,
+   "FullFT_H100_GPU_hours": 40.9,
+   "LoRA_cost_gcp_h100_ondemand_usd": 251,
+   "LoRA_cost_gcp_h100_spot_usd": 150,
+   "LoRA_cost_gcp_h100_3yr_usd": 110,
+   "FullFT_cost_gcp_h100_ondemand_usd": 453,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 52.3,
+   "hardware": "LoRA 1xH100; full FT 8xH100"
+  },
+  {
+   "model": "27-31B dense",
+   "epochs": 2,
+   "tokens_M": 300.0,
+   "LoRA_H100_tok_s_per_GPU": 1500,
+   "LoRA_H100_GPU_hours": 55.6,
+   "FullFT_multiplier": 2.0,
+   "FullFT_H100_GPU_hours": 111.1,
+   "LoRA_cost_gcp_h100_ondemand_usd": 615,
+   "LoRA_cost_gcp_h100_spot_usd": 366,
+   "LoRA_cost_gcp_h100_3yr_usd": 270,
+   "FullFT_cost_gcp_h100_ondemand_usd": 1229,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 127.8,
+   "hardware": "LoRA/QLoRA 1-2xH100 (or 8x for speed); full FT 8-16xH100"
+  },
+  {
+   "model": "27-31B dense",
+   "epochs": 3,
+   "tokens_M": 450.0,
+   "LoRA_H100_tok_s_per_GPU": 1500,
+   "LoRA_H100_GPU_hours": 83.3,
+   "FullFT_multiplier": 2.0,
+   "FullFT_H100_GPU_hours": 166.7,
+   "LoRA_cost_gcp_h100_ondemand_usd": 922,
+   "LoRA_cost_gcp_h100_spot_usd": 549,
+   "LoRA_cost_gcp_h100_3yr_usd": 405,
+   "FullFT_cost_gcp_h100_ondemand_usd": 1844,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 191.7,
+   "hardware": "LoRA/QLoRA 1-2xH100 (or 8x for speed); full FT 8-16xH100"
+  },
+  {
+   "model": "30B-A3B MoE",
+   "epochs": 2,
+   "tokens_M": 300.0,
+   "LoRA_H100_tok_s_per_GPU": 4000,
+   "LoRA_H100_GPU_hours": 20.8,
+   "FullFT_multiplier": 1.8,
+   "FullFT_H100_GPU_hours": 37.5,
+   "LoRA_cost_gcp_h100_ondemand_usd": 230,
+   "LoRA_cost_gcp_h100_spot_usd": 137,
+   "LoRA_cost_gcp_h100_3yr_usd": 101,
+   "FullFT_cost_gcp_h100_ondemand_usd": 415,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 47.9,
+   "hardware": "LoRA 1xH100 (61GB BF16 tight; QLoRA 17.5-63GB per Unsloth) ; full FT 8xH100 + EP"
+  },
+  {
+   "model": "30B-A3B MoE",
+   "epochs": 3,
+   "tokens_M": 450.0,
+   "LoRA_H100_tok_s_per_GPU": 4000,
+   "LoRA_H100_GPU_hours": 31.2,
+   "FullFT_multiplier": 1.8,
+   "FullFT_H100_GPU_hours": 56.2,
+   "LoRA_cost_gcp_h100_ondemand_usd": 346,
+   "LoRA_cost_gcp_h100_spot_usd": 206,
+   "LoRA_cost_gcp_h100_3yr_usd": 152,
+   "FullFT_cost_gcp_h100_ondemand_usd": 622,
+   "LoRA_A100_80_GPU_hours_2p3x_slower": 71.9,
+   "hardware": "LoRA 1xH100 (61GB BF16 tight; QLoRA 17.5-63GB per Unsloth) ; full FT 8xH100 + EP"
+  }
+ ],
+ "references": [
+  {
+   "item": "NeMo AutoModel LoRA H100 BF16 seq4096 Llama3-8B 1 GPU",
+   "value": "12,473 tok/s/GPU (402 model TFLOPs/s/GPU)",
+   "note": "Best-case mock, no padding, TE+triton; real SFT typically 40-70% of this",
+   "source_url": "https://docs.nvidia.com/nemo/automodel/latest/performance-summary.html"
+  },
+  {
+   "item": "NeMo AutoModel LoRA H100 Qwen2.5-7B",
+   "value": "14,110 tok/s/GPU",
+   "source_url": "https://docs.nvidia.com/nemo/automodel/latest/performance-summary.html"
+  },
+  {
+   "item": "NeMo AutoModel LoRA H100 Qwen2.5-32B, 8 GPUs TP2 FSDP",
+   "value": "2,250 tok/s/GPU",
+   "note": "2-node: 2,073",
+   "source_url": "https://docs.nvidia.com/nemo/automodel/latest/performance-summary.html"
+  },
+  {
+   "item": "NeMo AutoModel LoRA H100 Llama3-70B 8 GPUs",
+   "value": "1,092 tok/s/GPU",
+   "source_url": "https://docs.nvidia.com/nemo/automodel/latest/performance-summary.html"
+  },
+  {
+   "item": "NeMo AutoModel PRE-TRAINING (full-parameter, proxy for full FT) H100 BF16 Qwen3-MoE-30B (EP8, 8 GPUs, balanced routing)",
+   "value": "12,040 tok/s/GPU; GPT-OSS-20B 13,058; Nemotron-3 Nano 30B 16,789",
+   "note": "Mock data, DeepEP; shows MoE 30B-A3B full training is ~ 8B-dense-LoRA speed per GPU when tuned. FP8 MXFP8 on GB200: 28,606/GPU",
+   "source_url": "https://docs.nvidia.com/nemo/automodel/latest/performance-summary.html"
+  },
+  {
+   "item": "VESSL: Gemma-4-31B LoRA r16 on 8xH100 (FSDP)",
+   "value": "9,559 tok/s total best (~1,195 tok/s/GPU); 8xA100 4,746 (~593/GPU); 8xB200 ~4x A100",
+   "note": "H100 2.0-2.5x A100; cost/token within ~5% across A100/H100/B200 once tuned",
+   "source_url": "https://vessl.ai/en/blog/lora-finetuning-cost-a100-h100-b200"
+  },
+  {
+   "item": "Axolotl custom CUDA LoRA kernels Llama-3.1-8B 1xH100",
+   "value": "+47.5% avg throughput gain (absolute not captured)",
+   "source_url": "https://axolotlai.substack.com/p/accelerating-lora-fine-tuning-with?open=false",
+   "note": "search-snippet only"
+  },
+  {
+   "item": "Unsloth Qwen3-30B-A3B",
+   "value": "17.5GB VRAM (QLoRA) ; 63GB 16-bit LoRA; claims ~12x faster MoE training, >35% less VRAM",
+   "source_url": "https://unsloth.ai/docs/models/qwen",
+   "note": "vendor claims; not independently verified; absolute tok/s not given"
+  },
+  {
+   "item": "Databricks FMT (EOL) example",
+   "value": "Llama 3.1 8B: 4,400 DBU per 500M words; 3B: 2,750; 70B: 11,000",
+   "source_url": "https://www.databricks.com/product/pricing/foundation-model-training",
+   "note": "Product reached end of life; AI Runtime is the replacement; Databricks recommends 1-4 epochs"
+  },
+  {
+   "item": "Vertex managed SFT per-token",
+   "value": "Gemma3-12B $1.82/M, 27B $6.83/M, Llama3.1-8B $0.67/M, Qwen3-8B $4.18/M, Qwen3-32B $6.57/M",
+   "source_url": "https://cloud.google.com/vertex-ai/generative-ai/pricing",
+   "note": "dataset tokens x epochs; 450M tokens -> $819 (12B), $3,074 (27B), $302 (Llama 8B), $1,881 (Qwen3-8B), $2,957 (Qwen3-32B). 30B-A3B not listed"
+  }
+ ]
+}

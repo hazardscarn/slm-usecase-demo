@@ -1,0 +1,3 @@
+{"source_url":"https://cloud.google.com/run/pricing","accessed":"2026-11-08","region_tier":"Tier 1 (us-central1), instance-based billing, default (no CUD)",
+ "vcpu_per_second":0.000018,"gib_per_second":0.000002,"gpu_per_second":{"NVIDIA L4 (no zonal redundancy)":0.0001867,"NVIDIA L4 (zonal redundancy)":0.0002909,"NVIDIA RTX PRO 6000 (no zonal redundancy)":0.00036522,"NVIDIA RTX PRO 6000 (zonal redundancy)":0.00056913},
+ "notes":"Per-second billing, only while instance is running. Page example uses 4 vCPU / 16 GiB with 1x L4 - taken as the L4 config. Minimum vCPU/RAM for RTX PRO 6000 (20 vCPU / 80 GiB assumed) NOT verified on the page. A100/H100 not offered on Cloud Run."}

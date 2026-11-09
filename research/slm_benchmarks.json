@@ -1,0 +1,404 @@
+[
+ {
+  "model": "Gemma 4 26B A4B",
+  "benchmark": "Vectara hallucination rate (summarization)",
+  "score": "5.2% (consistency 94.8%, answer 99.8%, 67.1 words)",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": false,
+  "note": "Vectara HHEM summarization hallucination (lower=better), leaderboard dated 2026-10-22; closest to a summarization-faithfulness benchmark"
+ },
+ {
+  "model": "Gemma 4 31B",
+  "benchmark": "Vectara hallucination rate (summarization)",
+  "score": "7.4% (consistency 92.6%, answer 100%, 75.8 words)",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": false,
+  "note": "Vectara HHEM summarization hallucination (lower=better), leaderboard dated 2026-10-22; closest to a summarization-faithfulness benchmark"
+ },
+ {
+  "model": "Granite 4.2 (all)",
+  "benchmark": "Vectara hallucination rate",
+  "score": "Not listed; Granite-4.0-H-Small: 5.2% (94.8% consistency)",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true,
+  "note": "predecessor proxy"
+ },
+ {
+  "model": "Qwen3.8-27B / Qwen3.6-35B-A3B",
+  "benchmark": "Vectara hallucination rate",
+  "score": "Not listed; Qwen3-32B 5.9%, Qwen3-14B 5.4%, Qwen3-8B 4.8%",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true,
+  "note": "older Qwen3 proxy"
+ },
+ {
+  "model": "gpt-oss-20b",
+  "benchmark": "Vectara hallucination rate",
+  "score": "Not listed; gpt-oss-120B 14.2% (99.9% answer)",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true,
+  "note": "sibling proxy"
+ },
+ {
+  "model": "Nemotron 3.5 Lightning",
+  "benchmark": "Vectara hallucination rate",
+  "score": "Not listed; Nemotron-3-Nano-30B-A3B 9.6%",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true,
+  "note": "predecessor proxy"
+ },
+ {
+  "model": "Muse Glimmer 30B",
+  "benchmark": "Vectara hallucination rate",
+  "score": "Not listed",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true
+ },
+ {
+  "model": "Phi-4 14B",
+  "benchmark": "Vectara hallucination rate",
+  "score": "3.7% (answer rate only 80.7%)",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": false
+ },
+ {
+  "model": "Llama-3.3-70B / Mistral Large 2411 (reference)",
+  "benchmark": "Vectara hallucination rate",
+  "score": "4.1% / 4.5%",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true,
+  "note": "reference points"
+ },
+ {
+  "model": "Muse Glimmer 30B",
+  "benchmark": "IFBench",
+  "score": 77.0,
+  "source_url": "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+  "is_proxy": true,
+  "note": "instruction-following proxy"
+ },
+ {
+  "model": "Muse Glimmer 30B",
+  "benchmark": "Beam128K (long context)",
+  "score": 65.1,
+  "source_url": "https://huggingface.co/meta-models/Muse-Glimmer-30B",
+  "is_proxy": true
+ },
+ {
+  "model": "Qwen3.8-27B",
+  "benchmark": "IFBench",
+  "score": 79.5,
+  "source_url": "https://huggingface.co/Qwen/Qwen3.8-27B",
+  "is_proxy": true
+ },
+ {
+  "model": "Qwen3.8-27B",
+  "benchmark": "GPQA Diamond",
+  "score": 89.2,
+  "source_url": "https://huggingface.co/Qwen/Qwen3.8-27B",
+  "is_proxy": true
+ },
+ {
+  "model": "Qwen3.6-35B-A3B",
+  "benchmark": "MMLU-Pro",
+  "score": 85.2,
+  "source_url": "https://huggingface.co/Qwen/Qwen3.6-35B-A3B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 31B",
+  "benchmark": "MMLU-Pro",
+  "score": "85.2%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 31B",
+  "benchmark": "GPQA Diamond",
+  "score": "84.3%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 26B A4B",
+  "benchmark": "MMLU-Pro",
+  "score": "82.6%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 26B A4B",
+  "benchmark": "GPQA Diamond",
+  "score": "82.3%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 12B",
+  "benchmark": "MMLU-Pro",
+  "score": "77.2%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 12B",
+  "benchmark": "GPQA Diamond",
+  "score": "78.8%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 E4B",
+  "benchmark": "MMLU-Pro",
+  "score": "69.4%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 E4B",
+  "benchmark": "GPQA Diamond",
+  "score": "58.6%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 31B",
+  "benchmark": "MRCR v2 8-needle 128k",
+  "score": "66.4%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true,
+  "note": "long-context retrieval proxy"
+ },
+ {
+  "model": "Gemma 4 26B A4B",
+  "benchmark": "MRCR v2 8-needle 128k",
+  "score": "44.1%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 12B",
+  "benchmark": "MRCR v2 8-needle 128k",
+  "score": "43.4%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 E4B",
+  "benchmark": "MRCR v2 8-needle 128k",
+  "score": "25.4%",
+  "source_url": "https://huggingface.co/google/gemma-4-26B-A4B",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 30B",
+  "benchmark": "IFBench (prompt)",
+  "score": 77.17,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 30B",
+  "benchmark": "BFCL v4 (function-calling)",
+  "score": 61.39,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true,
+  "note": "closest to structured/tool-call output"
+ },
+ {
+  "model": "Granite 4.2 30B",
+  "benchmark": "MMLU-Pro",
+  "score": 77.6,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 30B",
+  "benchmark": "RULER 128K",
+  "score": 81.38,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 8B",
+  "benchmark": "IFBench (prompt)",
+  "score": 79.33,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 8B",
+  "benchmark": "BFCL v4 (function-calling)",
+  "score": 52.39,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true,
+  "note": "closest to structured/tool-call output"
+ },
+ {
+  "model": "Granite 4.2 8B",
+  "benchmark": "MMLU-Pro",
+  "score": 74.04,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 8B",
+  "benchmark": "RULER 128K",
+  "score": 71.41,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 3B",
+  "benchmark": "IFBench (prompt)",
+  "score": 74.33,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 3B",
+  "benchmark": "BFCL v4 (function-calling)",
+  "score": 52.41,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true,
+  "note": "closest to structured/tool-call output"
+ },
+ {
+  "model": "Granite 4.2 3B",
+  "benchmark": "MMLU-Pro",
+  "score": 67.84,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 3B",
+  "benchmark": "RULER 128K",
+  "score": 55.3,
+  "source_url": "https://huggingface.co/ibm-granite/granite-4.2-30b",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron 3.5 Lightning",
+  "benchmark": "IFBench (loose)",
+  "score": 71.88,
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron 3.5 Lightning",
+  "benchmark": "MMLU-Pro",
+  "score": 81.94,
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron 3.5 Lightning",
+  "benchmark": "AA-LCR (long context reasoning)",
+  "score": 52.0,
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron 3 Nano 30B-A3B (FP8)",
+  "benchmark": "IFBench (prompt)",
+  "score": 72.2,
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron 3 Nano 30B-A3B (FP8)",
+  "benchmark": "BFCL v4",
+  "score": 53.2,
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron 3 Nano 30B-A3B (FP8)",
+  "benchmark": "MMLU-Pro",
+  "score": 78.1,
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron Nano 9B v2",
+  "benchmark": "IFEval (instruction strict, reasoning on)",
+  "score": "90.3%",
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron Nano 9B v2",
+  "benchmark": "BFCL v3",
+  "score": "66.9%",
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  "is_proxy": true
+ },
+ {
+  "model": "Nemotron Nano 9B v2",
+  "benchmark": "RULER 128K",
+  "score": "78.9%",
+  "source_url": "https://huggingface.co/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  "is_proxy": true
+ },
+ {
+  "model": "Gemma 4 31B",
+  "benchmark": "AA output speed (API, tok/s)",
+  "score": 36,
+  "source_url": "https://artificialanalysis.ai/models/open-source/small",
+  "is_proxy": true,
+  "note": "NOT 1xH100; provider median. AA Intelligence Index v5 value scraped as 254 but scale unclear - verify on site"
+ },
+ {
+  "model": "Qwen3.8-27B (Xhigh)",
+  "benchmark": "AA output speed (API, tok/s)",
+  "score": 43,
+  "source_url": "https://artificialanalysis.ai/models/open-source/small",
+  "is_proxy": true,
+  "note": "AA Intelligence Index scraped 303 (scale unclear)"
+ },
+ {
+  "model": "Muse Glimmer (High)",
+  "benchmark": "AA output speed (API, tok/s)",
+  "score": 95,
+  "source_url": "https://artificialanalysis.ai/models/open-source/small",
+  "is_proxy": true,
+  "note": "AA Intelligence Index scraped 267 (scale unclear)"
+ },
+ {
+  "model": "Gemma 4 26B A4B",
+  "benchmark": "AA output speed (API, tok/s)",
+  "score": 67,
+  "source_url": "https://artificialanalysis.ai/models/gemma-4-26b-a4b",
+  "is_proxy": true
+ },
+ {
+  "model": "gpt-oss-20b (High)",
+  "benchmark": "AA output speed (API, tok/s)",
+  "score": 159,
+  "source_url": "https://artificialanalysis.ai/models/gpt-oss-20b",
+  "is_proxy": true
+ },
+ {
+  "model": "Granite 4.2 8B",
+  "benchmark": "AA output speed (API, tok/s)",
+  "score": 88,
+  "source_url": "https://artificialanalysis.ai/models/creators/ibm",
+  "is_proxy": true
+ },
+ {
+  "model": "Muse Glimmer 30B",
+  "benchmark": "Single RTX 5090 NVFP4 decode tok/s",
+  "score": 68.8,
+  "source_url": "https://recipes.vllm.ai/meta-models/Muse-Glimmer-30B",
+  "is_proxy": true,
+  "note": "only hardware-specific figure found; no H100"
+ },
+ {
+  "model": "all models",
+  "benchmark": "Summarization-specific (CNN/DM, SAMSum, DialogSum, QMSum) / NER-IE (CoNLL, etc.)",
+  "score": "NOT FOUND in vendor cards or any fetched source for these 2025-26 models",
+  "source_url": "https://github.com/vectara/hallucination-leaderboard",
+  "is_proxy": true,
+  "note": "Recommend running own eval on in-house call transcripts; Vectara HHEM + IFBench/BFCL are proxies only"
+ }
+]
